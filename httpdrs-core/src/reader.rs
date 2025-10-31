@@ -19,7 +19,7 @@ impl CSVMetaReader {
         let paths = std::fs::read_dir(self.meta_path.as_str()).unwrap();
         for path in paths {
             let meta_path =  path.unwrap().path().to_string_lossy().to_string();
-            let (lines, bytes) = read_meta_bin(meta_path.as_str(), &mut |_, _, _| {}).await? ;
+            let (lines, bytes) = read_meta_bin(meta_path.as_str(), &mut |_, _, _| {true}).await? ;
             file_lines += lines;
             file_bytes += bytes;
         }
@@ -27,12 +27,15 @@ impl CSVMetaReader {
     }
 
     pub async fn read_meta<F>(&self, mut processor: F) -> Result<(), Box<dyn std::error::Error>>
-    where F: FnMut(String)
+    where F: FnMut(String) -> bool
     {
         let paths = std::fs::read_dir(self.meta_path.as_str()).unwrap();
         for path in paths {
             let meta_path =  path.unwrap().path().to_string_lossy().to_string();
-            processor(meta_path);
+            let next = processor(meta_path);
+            if !next {
+                break;
+            }
         }
         Ok(())
     }
@@ -51,7 +54,7 @@ pub async fn read_meta_bin<F>(
     processor: &mut F
 ) -> Result<(i64, i64), Box<dyn std::error::Error>>
 where
-    F: FnMut(String, i64, String)
+    F: FnMut(String, i64, String) -> bool
 {
     let mut csv_reader = Reader::from_path(file_path)?;
 
@@ -62,9 +65,13 @@ where
         let sign = raw_line.get(0).unwrap();
         let size = raw_line.get(1).unwrap().parse::<i64>().unwrap();
         let extn = raw_line.get(2).unwrap();
-        processor(sign.to_string(), size, extn.to_string());
         lines += 1;
-        bytes += size
+        bytes += size;
+
+        let next = processor(sign.to_string(), size, extn.to_string());
+        if !next {
+            break;
+        }
     }
 
     Ok((lines, bytes))

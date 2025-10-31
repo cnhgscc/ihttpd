@@ -24,7 +24,7 @@ impl SignatureClient {
         Ok(text)
     }
 
-    pub async fn reader_get(&self, sign_data: String) -> Result<String, reqwest::Error> {
+    pub async fn reader_get(&self, _sign_data: String) -> Result<String, reqwest::Error> {
         let req = ReaderRequest::new("public", "".to_string());
 
         let reader_presign = self.reader_presign.as_str();
@@ -34,7 +34,7 @@ impl SignatureClient {
     }
 
     pub async fn writer_get(&self, sign_data: String) -> Result<String, reqwest::Error> {
-        Ok("".to_string())
+        Ok(sign_data)
     }
 }
 

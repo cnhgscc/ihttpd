@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 
 #[derive(Debug, Serialize, Deserialize)]
+#[warn(dead_code)]
 pub struct ReaderRequest<'a> {
     pub network: &'a str,
     pub download_sign: String,
@@ -25,6 +26,7 @@ impl Display for ReaderRequest<'_> {
 
 
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReaderResponse {
     pub status: String,
