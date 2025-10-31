@@ -2,7 +2,7 @@ use std::fmt::Display;
 use csv::Reader;
 
 pub struct CSVMetaReader {
-    meta_path: String,
+    pub(crate) meta_path: String,
 
 }
 
@@ -19,7 +19,7 @@ impl CSVMetaReader {
         let paths = std::fs::read_dir(self.meta_path.as_str()).unwrap();
         for path in paths {
             let meta_path =  path.unwrap().path().to_string_lossy().to_string();
-            let (lines, bytes) = read_meta_bin(meta_path.as_str(), &mut |_, _, _| {true}).await? ;
+            let (lines, bytes) = read_meta_bin(meta_path.as_str(), &mut |_, _, _| {}).await? ;
             file_lines += lines;
             file_bytes += bytes;
         }
@@ -54,7 +54,7 @@ pub async fn read_meta_bin<F>(
     processor: &mut F
 ) -> Result<(i64, i64), Box<dyn std::error::Error>>
 where
-    F: FnMut(String, i64, String) -> bool
+    F: FnMut(String, i64, String),
 {
     let mut csv_reader = Reader::from_path(file_path)?;
 
@@ -68,10 +68,8 @@ where
         lines += 1;
         bytes += size;
 
-        let next = processor(sign.to_string(), size, extn.to_string());
-        if !next {
-            break;
-        }
+        processor(sign.to_string(), size, extn.to_string());
+
     }
 
     Ok((lines, bytes))

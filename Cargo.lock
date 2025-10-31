@@ -367,7 +367,6 @@ version = "0.1.0"
 dependencies = [
  "httpdrs-core",
  "httpdrs-logger",
- "httpdrs-sign",
  "tracing",
  "tracing-subscriber",
 ]
@@ -378,6 +377,7 @@ version = "0.1.0"
 dependencies = [
  "csv",
  "futures",
+ "httpdrs-sign",
  "reqwest",
  "tokio",
  "tracing",

@@ -1,8 +1,9 @@
 use std::sync::{Arc, Mutex, LazyLock};
-
+use csv::Reader;
 use tokio::runtime;
-use tokio::sync::Semaphore;
+use tokio::sync::{Semaphore, mpsc};
 use futures::future::join_all;
+
 use crate::reader;
 use crate::reader::read_meta_bin;
 
@@ -48,7 +49,6 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
                 let _permit = se.acquire().await.unwrap();
                 let _ = read_meta_bin(meta_path.as_str(), &mut |sign, _size, _extn |{
                     tracing::debug!("reading: {}", sign);
-                    true
                 }).await;
             });
             jobs.push(job);
@@ -61,25 +61,25 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
     let spawn_download = rt.spawn(async {
 
-        let semaphore = Arc::new(Semaphore::new(100));
-        let csv_reader = reader::CSVMetaReader::new("/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string());
+        let csv_meta_reader = reader::CSVMetaReader::new("/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string());
 
-        let mut jobs = Vec::new();
-        let _ = csv_reader.read_meta(&mut |meta_path: String| {
-            let se = semaphore.clone();
-            let job = tokio::spawn(async move {
-                let _permit = se.acquire().await.unwrap();
-                let _ = read_meta_bin(meta_path.as_str(), &mut |sign, _size, _extn |{
-                    tracing::info!("reading: {}", sign);
-                    false
-                }).await;
-            });
-            jobs.push(job);
-            false
-        }).await;
+        let paths = std::fs::read_dir(csv_meta_reader.meta_path.as_str()).unwrap();
+        for path in paths {
+            let meta_path =  path.unwrap().path().to_string_lossy().to_string();
+            let mut csv_reader = Reader::from_path(meta_path.as_str()).unwrap();
 
-        join_all(jobs).await;
-        tracing::info!("downloading: Done");
+            for raw_result in csv_reader.records(){
+                let raw_line = raw_result.unwrap();
+                let sign = raw_line.get(0).unwrap();
+                let _size = raw_line.get(1).unwrap().parse::<i64>().unwrap();
+                let s= httpdrs_sign::SignatureClient::new();
+                let reader_endpoint = s.reader_get(sign.to_string()).await.unwrap();
+                print!("{:?}", reader_endpoint);
+                break
+            }
+            break
+        }
+
     });
 
 

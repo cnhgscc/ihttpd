@@ -14,4 +14,3 @@ tracing-subscriber = { workspace = true }
 
 httpdrs-logger = { version = "0.1.0",  path = "../httpdrs-logger" }
 httpdrs-core = { version = "0.1.0",  path = "../httpdrs-core" }
-httpdrs-sign = { version = "0.1.0",  path = "../httpdrs-sign" }

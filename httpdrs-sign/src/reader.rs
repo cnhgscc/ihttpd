@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 
 #[derive(Debug, Serialize, Deserialize)]
-#[warn(dead_code)]
 pub struct ReaderRequest<'a> {
+    #[serde(borrow)]
     pub network: &'a str,
     pub download_sign: String,
 }
@@ -20,7 +20,7 @@ impl ReaderRequest<'_> {
 
 impl Display for ReaderRequest<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.network, self.download_sign)
+        write!(f, "{} -> {}", self.network, self.download_sign)
     }
 }
 
