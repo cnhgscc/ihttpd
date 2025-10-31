@@ -17,9 +17,11 @@ httpdrs-core = { version = "0.1.0",  path = "httpdrs-core" }
 
 
 [workspace]
-members = ["httpdrs",
+members = [
+    "httpdrs",
     "httpdrs-core",
     "httpdrs-logger",
+    "httpdrs-sign",
 ]
 
 [workspace.dependencies]

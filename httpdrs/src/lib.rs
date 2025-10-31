@@ -10,3 +10,7 @@ pub use httpdrs_core::*;
 pub mod logger {
     pub use httpdrs_logger::*;
 }
+
+pub mod sign {
+    pub use httpdrs_sign::*;
+}

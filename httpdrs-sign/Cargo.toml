@@ -1,0 +1,17 @@
+[package]
+name = "httpdrs-sign"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "httpdrs_sign"
+path = "src/lib.rs"
+
+[dependencies]
+# core dependencies
+reqwest = { workspace = true }
+tokio = { workspace = true }
+
+# logger dependencies
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
