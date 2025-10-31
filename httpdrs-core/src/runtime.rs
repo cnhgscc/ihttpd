@@ -63,22 +63,42 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
         let csv_meta_reader = reader::CSVMetaReader::new("/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string());
 
-        let paths = std::fs::read_dir(csv_meta_reader.meta_path.as_str()).unwrap();
-        for path in paths {
-            let meta_path =  path.unwrap().path().to_string_lossy().to_string();
-            let mut csv_reader = Reader::from_path(meta_path.as_str()).unwrap();
+        let (tx, mut rx) = mpsc::channel::<String>(100);
+        tokio::spawn(async move {
+            let paths = std::fs::read_dir(csv_meta_reader.meta_path.as_str()).unwrap();
 
-            for raw_result in csv_reader.records(){
-                let raw_line = raw_result.unwrap();
-                let sign = raw_line.get(0).unwrap();
-                let _size = raw_line.get(1).unwrap().parse::<i64>().unwrap();
-                let s= httpdrs_sign::SignatureClient::new();
-                let reader_endpoint = s.reader_get(sign.to_string()).await.unwrap();
-                print!("{:?}", reader_endpoint);
-                break
+            // 控制并发
+            let semaphore = Arc::new(Semaphore::new(100));
+            for path in paths {
+                let tx_sender = tx.clone();
+                let se = semaphore.clone();
+                tokio::spawn(async move {
+                    let _permit = se.acquire().await.unwrap();
+                    let meta_path =  path.unwrap().path().to_string_lossy().to_string();
+                    let mut csv_reader = Reader::from_path(meta_path.as_str()).unwrap();
+                    for raw_result in csv_reader.records(){
+                        let raw_line = raw_result.unwrap();
+                        let sign = raw_line.get(0).unwrap();
+
+                        let _ = httpdrs_sign::jwtsign::jwtsign(sign.to_string());
+
+                        let _size = raw_line.get(1).unwrap().parse::<i64>().unwrap();
+                        let s= httpdrs_sign::SignatureClient::new();
+                        let reader_rep = s.reader_get(sign.to_string()).await.unwrap();
+                        tracing::debug!("downloading: {:?}", reader_rep.data.endpoint);
+                        tx_sender.send("".to_string()).await.unwrap();
+                    }
+                });
             }
-            break
+        });
+
+        let mut count = 0;
+        while let Some(endpoint) = rx.recv().await {
+            count += 1;
+            // 执行下载逻辑
         }
+        tracing::info!("downloading: Done: {}", count);
+
 
     });
 

@@ -26,9 +26,15 @@ impl Display for ReaderRequest<'_> {
 
 
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReaderData {
+    pub endpoint: String,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReaderResponse {
-    pub status: String,
+    pub code: i32,
     pub message: String,
+    pub data: ReaderData,
 }

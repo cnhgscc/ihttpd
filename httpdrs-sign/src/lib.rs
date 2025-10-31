@@ -1,6 +1,8 @@
-use crate::reader::ReaderRequest;
+use crate::reader::{ReaderData, ReaderRequest, ReaderResponse};
 
 mod reader;
+pub mod jwtsign;
+
 
 pub struct SignatureClient{
     client: reqwest::Client,
@@ -12,7 +14,7 @@ impl SignatureClient {
     pub fn new() -> Self {
         SignatureClient {
             client: reqwest::Client::new(),
-            reader_presign: "http://127.0.0.1:30002/api/v1/provider-storage/download/presign".to_string(),
+            reader_presign: "http://127.0.0.1:30000/api/v1/provider-storage/download/presign".to_string(),
         }
     }
 
@@ -24,13 +26,14 @@ impl SignatureClient {
         Ok(text)
     }
 
-    pub async fn reader_get(&self, sign_data: String) -> Result<String, reqwest::Error> {
+    pub async fn reader_get(&self, sign_data: String) -> Result<ReaderResponse, reqwest::Error> {
         let req = ReaderRequest::new("public", sign_data);
         let reader_presign = self.reader_presign.as_str();
-        tracing::info!("reader_presign: {}, req: {}", reader_presign, req);
+        tracing::debug!("reader_presign: {}, req: {}", reader_presign, req);
         let resp = self.client.post(reader_presign).json(&req).send().await?;
-        let text = resp.text().await?;
-        Ok("".to_string())
+        let resp_data: ReaderResponse = resp.json().await?;
+        tracing::debug!("reader_presign: {}, resp: {:?}", reader_presign, resp_data);
+        Ok(resp_data)
     }
 
     pub async fn writer_get(&self, sign_data: String) -> Result<String, reqwest::Error> {
