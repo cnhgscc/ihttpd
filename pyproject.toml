@@ -11,6 +11,11 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
+
+[project.scripts]
+bf = "baai_flagdataset_rs.cmd.cmd_run:run_flagdataset"
+
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
 
