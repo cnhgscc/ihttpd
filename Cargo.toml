@@ -12,12 +12,12 @@ crate-type = ["cdylib"]
 pyo3 = "0.27.1"
 
 # mod rs
+httpdrs = { version = "0.1.0",  path = "httpdrs" }
 httpdrs-core = { version = "0.1.0",  path = "httpdrs-core" }
-httpdrs-logger = { version = "0.1.0",  path = "httpdrs-logger" }
 
 
 [workspace]
-members = [
+members = ["httpdrs",
     "httpdrs-core",
     "httpdrs-logger",
 ]

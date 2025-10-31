@@ -12,8 +12,8 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 name = "baai-flagdataset-rs"
 version = "0.1.0"
 dependencies = [
+ "httpdrs",
  "httpdrs-core",
- "httpdrs-logger",
  "pyo3",
 ]
 
@@ -28,6 +28,16 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
+name = "httpdrs"
+version = "0.1.0"
+dependencies = [
+ "httpdrs-core",
+ "httpdrs-logger",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "httpdrs-core"

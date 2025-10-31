@@ -1,5 +1,4 @@
-def run_flagdataset():
-    """
-    This is the main entry point for the flagdataset.
-    """
-    print("Hello, World!")
+from ..baai_flagdataset_rs import run_flagdataset
+
+def run_with_cmdargs():
+    run_flagdataset()

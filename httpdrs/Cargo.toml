@@ -1,0 +1,15 @@
+[package]
+name = "httpdrs"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "httpdrs"
+path = "src/lib.rs"
+
+[dependencies]
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+httpdrs-logger = { version = "0.1.0",  path = "../httpdrs-logger" }
+httpdrs-core = { version = "0.1.0",  path = "../httpdrs-core" }
