@@ -27,9 +27,12 @@ def init_with_cmdargs(cmd_args):
 
     try:
         from ..baai_helper import baai_print
+        from ..baai_flagdataset_rs import run_flagdataset
 
 
         baai_print.print_figlet()
+
+        run_flagdataset()
 
         print("flagdataset 初始化完成")
     except Exception as e:
