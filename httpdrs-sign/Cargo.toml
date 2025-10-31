@@ -15,3 +15,4 @@ tokio = { workspace = true }
 # logger dependencies
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+serde = { version = "1.0.228", features = ["derive"] }
