@@ -3,8 +3,6 @@ use csv::Reader;
 
 pub struct CSVMetaReader {
     meta_path: String,
-    file_lines : i64,
-    file_bytes : i64,
 
 }
 
@@ -12,18 +10,29 @@ impl CSVMetaReader {
     pub fn new(file_path: String) -> CSVMetaReader {
         CSVMetaReader {
             meta_path: file_path,
-            file_lines: 0,
-            file_bytes: 0,
         }
     }
 
-    pub async fn init(&mut self) -> Result<(), Box<dyn std::error::Error>>{
+    pub async fn init(&mut self) -> Result<(i64, i64), Box<dyn std::error::Error>>{
+        let mut file_lines: i64 = 0;
+        let mut file_bytes: i64 = 0;
         let paths = std::fs::read_dir(self.meta_path.as_str()).unwrap();
         for path in paths {
             let meta_path =  path.unwrap().path().to_string_lossy().to_string();
-            let (lines, bytes) = read_meta_bin(meta_path.as_str(),  |_, _, _| {}).await? ;
-            self.file_lines += lines;
-            self.file_bytes += bytes;
+            let (lines, bytes) = read_meta_bin(meta_path.as_str(), &mut |_, _, _| {}).await? ;
+            file_lines += lines;
+            file_bytes += bytes;
+        }
+        Ok((file_lines, file_bytes))
+    }
+
+    pub async fn read_meta<F>(&self, mut processor: F) -> Result<(), Box<dyn std::error::Error>>
+    where F: FnMut(String)
+    {
+        let paths = std::fs::read_dir(self.meta_path.as_str()).unwrap();
+        for path in paths {
+            let meta_path =  path.unwrap().path().to_string_lossy().to_string();
+            processor(meta_path);
         }
         Ok(())
     }
@@ -32,14 +41,14 @@ impl CSVMetaReader {
 
 impl Display for CSVMetaReader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "file_lines: {}, file_bytes: {}", self.file_lines, self.file_bytes)
+        write!(f, "meta_path: {}", self.meta_path)
     }
 }
 
 
 pub async fn read_meta_bin<F>(
     file_path: &str,
-    mut processor: F
+    processor: &mut F
 ) -> Result<(i64, i64), Box<dyn std::error::Error>>
 where
     F: FnMut(String, i64, String)
