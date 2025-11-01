@@ -9,6 +9,7 @@ pub mod prelude;
 mod bandwidth;
 mod stats;
 mod reader;
+mod downloader;
 
 pub mod logger {
     pub use httpdrs_logger::*;
