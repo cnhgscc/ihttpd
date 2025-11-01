@@ -1,5 +1,4 @@
 use std::sync::{Arc, LazyLock, Mutex};
-use httpdrs_core::httpd::Bandwidth;
 
 #[allow(dead_code)]
 #[derive(Debug, Default)]
