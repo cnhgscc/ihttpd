@@ -27,7 +27,7 @@ pub(crate) async fn init(){
                 require_bytes += size;
             }
             tx_sender.send((meta_path.clone(), require_bytes, require_count)).await.unwrap();
-            tracing::info!("init: use {:?}, {}, {}, {}", start.elapsed(), meta_path, require_bytes, require_count);
+            tracing::debug!("init: use {:?}, {}, {}, {}", start.elapsed(), meta_path, require_bytes, require_count);
         });
     }
     drop(tx);
@@ -38,7 +38,7 @@ pub(crate) async fn init(){
         rt.require_bytes += bytes;
         rt.require_count += size;
     }
-    tracing::info!("init reading: use {:?}", start.elapsed());
+    tracing::info!("reading: use {:?}", start.elapsed());
 }
 
 pub(crate) async fn checkpoint() {
@@ -57,14 +57,14 @@ pub(crate) async fn checkpoint() {
             let mut download_bytes = 0;
             let mut download_count = 0;
             for raw_result in csv_reader.records(){
-                tracing::debug!("init reading: {}, {:?}", meta_path, raw_result);
+                tracing::debug!("read_checkpoint reading: {}, {:?}", meta_path, raw_result);
                 let raw_line = raw_result.unwrap();
                 let sign = raw_line.get(0).unwrap().to_string();
                 let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
                 let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
                 if let Some(reader_size) = httpd_reader.check_local_file(RUNTIME.lock().unwrap().data_path.as_str()) {
                     if reader_size != size {
-                        tracing::warn!("check: {} size not match, local_size: {}, meta_size: {}", httpd_reader, reader_size, size);
+                        tracing::warn!("read_checkpoint: {} size not match, local_size: {}, meta_size: {}", httpd_reader, reader_size, size);
                         continue
                     }
                     download_bytes += 1;
@@ -72,7 +72,7 @@ pub(crate) async fn checkpoint() {
                 }
             }
             tx_sender.send((meta_path.clone(), download_bytes, download_count)).await.unwrap();
-            tracing::info!("check: use {:?}, {}, {}, {}", start.elapsed(), meta_path, download_bytes, download_count);
+            tracing::debug!("read_checkpoint: use {:?}, {}, {}, {}", start.elapsed(), meta_path, download_bytes, download_count);
         });
     }
     drop(tx);
@@ -83,5 +83,5 @@ pub(crate) async fn checkpoint() {
         rt.download_bytes += bytes;
         rt.download_count += size;
     }
-    tracing::info!("check reading: use {:?}", start.elapsed());
+    tracing::info!("checkpoint: use {:?}", start.elapsed());
 }

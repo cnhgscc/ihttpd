@@ -33,7 +33,6 @@ pub(crate) async fn down() {
                     tx_sender.send((meta_path.clone(), sign, size)).await.unwrap();
                 }
             }
-            tracing::info!("down_checkpoint: use {:?}, {}", start.elapsed(), meta_path);
         });
     }
     drop(tx);
