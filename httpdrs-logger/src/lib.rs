@@ -1,4 +1,3 @@
-use tracing::warn;
 use tracing_appender::rolling;
 pub fn try_logger_init() {
 
