@@ -22,3 +22,4 @@ csv = { workspace = true }
 
 httpdrs-sign = { version = "0.1.0",  path = "../httpdrs-sign" }
 httpdrs-pbar = { version = "0.1.0",  path = "../httpdrs-pbar" }
+httpdrs-bandwidth = { version = "0.1.0",  path = "../httpdrs-bandwidth" }

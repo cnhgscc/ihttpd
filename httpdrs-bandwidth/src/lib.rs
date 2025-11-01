@@ -1,6 +1,9 @@
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::Notify;
 
+
+#[derive(Debug)]
 pub struct Bandwidth {
     max_bs: u64, // 最大带宽 bytes
     period_used: AtomicU64, // 已经使用的字节数
@@ -15,6 +18,15 @@ impl Bandwidth {
             period_used: AtomicU64::new(0),
             notify: Notify::new(),
         }
+    }
+
+    pub fn init(max_bs: u64) -> Arc<Self>{
+        let bw = Bandwidth {
+            max_bs,
+            period_used: AtomicU64::new(0),
+            notify: Notify::new(),
+        };
+        Arc::new(bw)
     }
 
     pub fn reset_period(&self, elapsed_ms: u64) -> u64 {

@@ -2,9 +2,11 @@ use std::sync::{Arc, Mutex, LazyLock};
 use csv::Reader;
 use tokio::runtime;
 use tokio::sync::{Semaphore, mpsc};
+use tokio_util::sync::CancellationToken;
 use futures::future::join_all;
 
 use crate::core::{httpd, io, pbar};
+use crate::bandwidth;
 
 
 #[allow(dead_code)]
@@ -24,18 +26,22 @@ static RUNTIME_STATS: LazyLock<Arc<Mutex<EventReader>>> =
 
 pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
+
     let rt = runtime::Builder::new_multi_thread()
         .worker_threads(100)
         .enable_all()
         .build()
         .unwrap();
 
+    let rt_token = CancellationToken::new();
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
+
 
     let pb = pbar::create();
     pb.set_message(pbar::format(1, 1));
-    tracing::info!("Progress initialized: baai-flagdataset-rs");
 
+    let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*100);
+    rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
 
     let spawn_reader = rt.spawn(async {
         let mut csv_reader = io::CSVMetaReader::new("/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string());
@@ -135,6 +141,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
     rt.shutdown_background();
 
     pb.finish();
+    rt_token.cancel();
     tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME_STATS);
 
     Ok(())

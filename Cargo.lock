@@ -483,6 +483,7 @@ dependencies = [
  "httpdrs-core",
  "httpdrs-logger",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
 ]
@@ -500,6 +501,7 @@ version = "0.1.0"
 dependencies = [
  "csv",
  "futures",
+ "httpdrs-bandwidth",
  "httpdrs-pbar",
  "httpdrs-sign",
  "reqwest",

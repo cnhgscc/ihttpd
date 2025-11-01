@@ -6,6 +6,7 @@
 
 pub mod runtime;
 pub mod prelude;
+mod bandwidth;
 
 pub mod logger {
     pub use httpdrs_logger::*;
