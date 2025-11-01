@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, LazyLock};
+use std::sync::{Arc};
 use csv::Reader;
 use tokio::runtime;
 use tokio::sync::{Semaphore, mpsc};
@@ -6,27 +6,12 @@ use tokio_util::sync::CancellationToken;
 use futures::future::join_all;
 
 use crate::core::{httpd, io, pbar};
-use crate::bandwidth;
-
-
-#[allow(dead_code)]
-#[derive(Debug, Default)]
-pub struct EventReader{
-    pub total_size: i64,
-    pub total_count: i64,
-
-    pub download_size: u64,
-    pub download_count: u64,
-    pub download_err_count: u64,
-}
-
-static RUNTIME_STATS: LazyLock<Arc<Mutex<EventReader>>> =
-    LazyLock::new(|| Arc::new(Mutex::new(EventReader::default())));
+use crate::{bandwidth, reader};
+use crate::stats::RUNTIME;
 
 
 pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
-
-
+    
     let rt = runtime::Builder::new_multi_thread()
         .worker_threads(100)
         .enable_all()
@@ -34,8 +19,11 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
         .unwrap();
 
     let rt_token = CancellationToken::new();
-    tracing::info!("Runtime initialized: baai-flagdataset-rs");
 
+    RUNTIME.lock().unwrap().meta_path = "/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string();
+    RUNTIME.lock().unwrap().data_path = "/Users/hgshicc/test/flagdataset/AIM-500/data".to_string();
+
+    tracing::info!("Runtime initialized: baai-flagdataset-rs");
 
     let pb = pbar::create();
     pb.set_message(pbar::format(1, 1));
@@ -43,49 +31,8 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
     let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*100);
     rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
 
-    let spawn_reader = rt.spawn(async {
-        let mut csv_reader = io::CSVMetaReader::new("/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string());
-        let (lines, bytes) = csv_reader.init().await.unwrap();
-        tracing::info!("CSVReader initialized: baai-flagdataset-rs: {}", csv_reader);
-        RUNTIME_STATS.lock().unwrap().total_size = bytes;
-        RUNTIME_STATS.lock().unwrap().total_count = lines;
-    });
-
-    let spawn_filter = rt.spawn(async {
-        // 获取已经下载的文件信息
-
-        let semaphore = Arc::new(Semaphore::new(100));
-        let csv_reader = io::CSVMetaReader::new("/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string());
-
-        let data_path = "/Users/hgshicc/test/flagdataset/AIM-500/data";
-
-        let mut jobs = Vec::new();
-        let _ = csv_reader.read_meta(&mut |meta_path: String| {
-            let se = semaphore.clone();
-            let job = tokio::spawn(async move {
-                let _permit = se.acquire().await.unwrap();
-                let _ = io::read_meta_bin(meta_path.as_str(), &mut |sign, size, _extn |{
-                    tracing::debug!("reading: {}", sign);
-                    let httpd_reader  = httpd::reader_parse(sign).unwrap();
-                    if let Some(reader_size) =  httpd_reader.check_local_file(data_path){
-                        if reader_size != size as u64 {
-                            tracing::warn!("file size mismatch: {}", httpd_reader);
-                            RUNTIME_STATS.lock().unwrap().download_err_count += 1;
-                            return
-                        }
-                        RUNTIME_STATS.lock().unwrap().download_size += reader_size;
-                        RUNTIME_STATS.lock().unwrap().download_count += 1;
-                    }
-
-                }).await;
-            });
-            jobs.push(job);
-            true
-        }).await;
-
-        join_all(jobs).await;
-        tracing::info!("reading: Done");
-    });
+    let spawn_reader = rt.spawn(reader::init());
+    let spawn_checkpoint = rt.spawn(reader::checkpoint());
 
     let spawn_download = rt.spawn(async {
 
@@ -118,7 +65,6 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
                             }
                             tx_sender.send((sign.clone(), size)).await.unwrap();
                         }
-
                     }
                 });
 
@@ -135,14 +81,14 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
     });
 
 
-    let event_tasks = vec![spawn_reader, spawn_filter, spawn_download];
+    let event_tasks = vec![spawn_reader, spawn_checkpoint, spawn_download];
 
     let _ = rt.block_on(join_all(event_tasks));
     rt.shutdown_background();
 
     pb.finish();
     rt_token.cancel();
-    tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME_STATS);
+    tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
 
     Ok(())
 }

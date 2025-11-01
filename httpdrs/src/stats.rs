@@ -3,11 +3,17 @@ use std::sync::{Arc, LazyLock, Mutex};
 #[allow(dead_code)]
 #[derive(Debug, Default)]
 pub struct RuntimeContext{
-    pub request_count: i64,
-    pub request_bytes: i64,
+    pub meta_path: String,
+    pub data_path: String,
+
+    pub request_count: u64,
+    pub request_bytes: u64,
 
 
-    pub download_speed: u64
+    pub download_speed: u64,
+
+    pub download_bytes: u64,
+    pub download_count: u64,
 }
 
 pub(crate)  static RUNTIME: LazyLock<Arc<Mutex<RuntimeContext>>> =
