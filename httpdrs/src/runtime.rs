@@ -4,7 +4,7 @@ use tokio::runtime;
 use tokio::sync::{Semaphore, mpsc};
 use futures::future::join_all;
 
-use crate::core::{httpd, io};
+use crate::core::{httpd, io, pbar};
 
 
 #[allow(dead_code)]
@@ -31,6 +31,10 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
         .unwrap();
 
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
+
+    let pb = pbar::create();
+    pb.set_message(pbar::format(1, 1));
+    tracing::info!("Progress initialized: baai-flagdataset-rs");
 
 
     let spawn_reader = rt.spawn(async {
@@ -130,6 +134,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
     let _ = rt.block_on(join_all(event_tasks));
     rt.shutdown_background();
 
+    pb.finish();
     tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME_STATS);
 
     Ok(())

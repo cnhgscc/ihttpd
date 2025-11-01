@@ -12,3 +12,8 @@ pub mod httpd {
 pub mod io {
     pub use crate::reader::*;
 }
+
+
+pub mod pbar {
+    pub use httpdrs_pbar::*;
+}

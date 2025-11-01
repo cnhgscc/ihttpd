@@ -1,0 +1,12 @@
+[package]
+name = "httpdrs-pbar"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "httpdrs_pbar"
+path = "src/lib.rs"
+
+[dependencies]
+
+indicatif = { workspace = true }

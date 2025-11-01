@@ -21,3 +21,4 @@ tracing = { workspace = true }
 csv = { workspace = true }
 
 httpdrs-sign = { version = "0.1.0",  path = "../httpdrs-sign" }
+httpdrs-pbar = { version = "0.1.0",  path = "../httpdrs-pbar" }
