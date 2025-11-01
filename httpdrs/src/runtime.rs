@@ -11,7 +11,7 @@ use crate::stats::RUNTIME;
 
 
 pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
-    
+
     let rt = runtime::Builder::new_multi_thread()
         .worker_threads(100)
         .enable_all()
@@ -26,13 +26,12 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 
     let pb = pbar::create();
-    pb.set_message(pbar::format(1, 1));
+
 
     let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*100);
     rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
 
     let spawn_reader = rt.spawn(reader::init());
-    let spawn_checkpoint = rt.spawn(reader::checkpoint());
 
     let spawn_download = rt.spawn(async {
 
@@ -81,14 +80,14 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
     });
 
 
-    let event_tasks = vec![spawn_reader, spawn_checkpoint, spawn_download];
+    let event_tasks = vec![spawn_reader, spawn_download];
 
     let _ = rt.block_on(join_all(event_tasks));
     rt.shutdown_background();
 
-    pb.finish();
     rt_token.cancel();
     tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
+    pb.finish();
 
     Ok(())
 }

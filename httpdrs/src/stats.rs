@@ -6,8 +6,8 @@ pub struct RuntimeContext{
     pub meta_path: String,
     pub data_path: String,
 
-    pub request_count: u64,
-    pub request_bytes: u64,
+    pub require_count: u64,
+    pub require_bytes: u64,
 
 
     pub download_speed: u64,
