@@ -1,13 +1,12 @@
 use pyo3::prelude::*;
 
-use httpdrs::*;
+use httpdrs;
 
 
 #[pyfunction]
 fn run_flagdataset() -> PyResult<()> {
-    logger::try_logger_init();
-    httpd::start_multi_thread().expect("start multi thread runtime err");
-
+    httpdrs::logger::try_logger_init();
+    httpdrs::start_multi_thread().expect("start multi thread runtime err");
     Ok(())
 }
 

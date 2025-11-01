@@ -2,7 +2,7 @@ use std::fmt::Display;
 use csv::Reader;
 
 pub struct CSVMetaReader {
-    pub(crate) meta_path: String,
+    pub meta_path: String,
 
 }
 

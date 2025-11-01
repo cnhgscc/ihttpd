@@ -9,6 +9,15 @@ path = "src/lib.rs"
 
 [dependencies]
 
+# core dependencies
+tokio = { workspace = true }
+futures = { workspace = true }
+
+# server dependencies
+csv = { workspace = true }
+
+
+# logger dependencies
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
