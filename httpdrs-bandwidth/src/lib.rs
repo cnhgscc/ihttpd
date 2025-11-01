@@ -26,11 +26,11 @@ impl Bandwidth {
         loop {
             let old_used = self.period_used.fetch_add(desired_bytes, Ordering::Relaxed);
             if old_used + desired_bytes > self.max_bs {
-                self.period_used.fetch_sub(desired_bytes, Ordering::Relaxed); // 允许其他任务继续执行
-                self.notify.notified().await; // 超出带宽限制，等待通知
+                self.period_used.fetch_sub(desired_bytes, Ordering::Relaxed);
+                self.notify.notified().await;
                 continue
             }
-            return Ok(old_used) // 返回期待值之前的值，这样获取到权限的任务，可以知道自己执行完时，一共已经用了多少
+            return Ok(old_used)
         }
     }
 }
