@@ -4,8 +4,8 @@ use tokio::runtime;
 use tokio::sync::{Semaphore, mpsc};
 use futures::future::join_all;
 
-use httpdrs_core:: {httpd, io};
-use httpdrs_core::httpd::jwtsign::{jwtsign};
+use crate::core::{httpd, io};
+
 
 #[allow(dead_code)]
 #[derive(Debug, Default)]
@@ -56,7 +56,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
                 let _permit = se.acquire().await.unwrap();
                 let _ = io::read_meta_bin(meta_path.as_str(), &mut |sign, size, _extn |{
                     tracing::debug!("reading: {}", sign);
-                    let httpd_reader  = jwtsign(sign).unwrap();
+                    let httpd_reader  = httpd::reader_parse(sign).unwrap();
                     if let Some(reader_size) =  httpd_reader.check_local_file(data_path){
                         if reader_size != size as u64 {
                             tracing::warn!("file size mismatch: {}", httpd_reader);
@@ -101,7 +101,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
                         let sign = raw_line.get(0).unwrap().to_string();
                         let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
 
-                        let httpd_reader  = jwtsign(sign.clone()).unwrap();
+                        let httpd_reader  = httpd::reader_parse(sign.clone()).unwrap();
                         if let Some(reader_size) =  httpd_reader.check_local_file(data_path){
                             if reader_size == size{
                                 continue
@@ -115,7 +115,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
             }
         });
 
-        while let Some((sign, size)) = rx.recv().await {
+        while let Some((sign, _size)) = rx.recv().await {
             // 执行下载逻辑
             tokio::spawn(async move {
                 tracing::info!("downloading: {}", sign);

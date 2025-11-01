@@ -60,7 +60,7 @@ impl Display for HttpdMetaReader {
     }
 }
 
-pub fn jwtsign(token: String) -> Result<HttpdMetaReader, Box<dyn std::error::Error>> {
+pub fn reader_parse(token: String) -> Result<HttpdMetaReader, Box<dyn std::error::Error>> {
     let t = Token::<Header, Claims, _>::parse_unverified(&*token).unwrap();
     let claims =  t.claims().clone();
 
