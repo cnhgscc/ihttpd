@@ -17,9 +17,10 @@ impl Bandwidth {
         }
     }
 
-    pub fn reset_period(&self) {
-        self.period_used.store(0, Ordering::Relaxed);
+    pub fn reset_period(&self, elapsed_ms: u64) -> u64 {
+        let used_bytes = self.period_used.swap(0, Ordering::Relaxed);
         self.notify.notify_waiters();
+        used_bytes / elapsed_ms
     }
 
     pub async fn permit(&self, desired_bytes: u64) -> Result<u64, Box<dyn std::error::Error>>{
