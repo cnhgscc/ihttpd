@@ -19,6 +19,7 @@ httpdrs-core = { version = "0.1.0",  path = "httpdrs-core" }
 [workspace]
 members = [
     "httpdrs",
+    "httpdrs-bandwidth",
     "httpdrs-core",
     "httpdrs-logger",
     "httpdrs-sign",

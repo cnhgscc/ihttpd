@@ -1,0 +1,13 @@
+[package]
+name = "httpdrs-bandwidth"
+version = "0.1.0"
+edition = "2024"
+
+
+[lib]
+name = "httpdrs_bandwidth"
+path = "src/lib.rs"
+
+[dependencies]
+tokio = { workspace = true }
+

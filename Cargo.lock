@@ -436,6 +436,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "httpdrs-bandwidth"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "httpdrs-core"
 version = "0.1.0"
 dependencies = [
