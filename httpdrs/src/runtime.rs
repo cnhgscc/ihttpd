@@ -30,8 +30,9 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
     let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*100);
     rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
+    rt.spawn(reader::checkpoint());
 
-    let spawn_reader = rt.spawn(reader::init());
+    let spawn_read = rt.spawn(reader::init());
 
     let spawn_download = rt.spawn(async {
 
@@ -80,7 +81,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
     });
 
 
-    let event_tasks = vec![spawn_reader, spawn_download];
+    let event_tasks = vec![spawn_read, spawn_download];
 
     let _ = rt.block_on(join_all(event_tasks));
     rt.shutdown_background();
