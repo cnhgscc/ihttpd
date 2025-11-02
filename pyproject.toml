@@ -13,7 +13,7 @@ classifiers = [
 dynamic = ["version"]
 
 [project.scripts]
-bf = "baai_flagdataset_rs.cmd.cmd_run:with_cmdargs"
+ihttpd = "baai_flagdataset_rs.cmd.cmd_run:with_cmdargs"
 
 
 [tool.maturin]

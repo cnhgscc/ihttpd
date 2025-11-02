@@ -1,6 +1,6 @@
 use crate::reader::{ReaderData, ReaderRequest, ReaderResponse};
 
-mod reader;
+pub mod reader;
 pub mod jwtsign;
 
 

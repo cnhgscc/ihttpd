@@ -30,7 +30,7 @@ impl HttpdMetaReader {
         check_file_meta(path)
     }
 
-    pub fn local_part_path(&self, base_dir: &str, part_index: u32, temp_dir: &str) -> PathBuf {
+    pub fn local_part_path(&self, base_dir: &str, part_index: u64, temp_dir: &str) -> PathBuf {
         // 获取本地绝对路径
         let local_path = self.local_absolute_path_str(base_dir);
 

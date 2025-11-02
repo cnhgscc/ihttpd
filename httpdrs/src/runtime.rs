@@ -20,6 +20,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
     RUNTIME.lock().unwrap().meta_path = "/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string();
     RUNTIME.lock().unwrap().data_path = "/Users/hgshicc/test/flagdataset/AIM-500/data".to_string();
+    RUNTIME.lock().unwrap().temp_path = "/Users/hgshicc/test/flagdataset/AIM-500/temp".to_string();
 
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 

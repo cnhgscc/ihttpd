@@ -5,6 +5,7 @@ use std::sync::{Arc, LazyLock, Mutex};
 pub struct RuntimeContext{
     pub meta_path: String,
     pub data_path: String,
+    pub temp_path: String,
 
     pub require_count: u64,
     pub require_bytes: u64,
