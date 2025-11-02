@@ -49,6 +49,13 @@ impl Bandwidth {
                 self.period_used.fetch_sub(desired_bytes, Ordering::Relaxed);
                 tracing::info!("bandwidth, waiting -> desired: {}  exceed max_bs: {}", desired_bytes, self.max_bs);
                 self.notify.notified().await;
+                if loop_count > 0 {
+                    if loop_count < 2 {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(100 * loop_count)).await;
+                    }else {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(1024)).await;
+                    }
+                }
                 loop_count += 1;
                 continue
             }
