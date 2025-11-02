@@ -122,7 +122,7 @@ async fn download(
         let temp_path_ = Arc::clone(&temp_path);
         let client_ = Arc::clone(&client);
         tokio::spawn(async move {
-            let _ = bandwidth_.permit(part_size); // 带宽控制
+            let _ = bandwidth_.permit(part_size).await; // 带宽控制
             let use_ms = download_part(
                 client_,
                 reader_,
