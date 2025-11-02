@@ -13,11 +13,11 @@ use httpdrs_core::httpd::Bandwidth;
 use crate::stats::RUNTIME;
 
 pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
-    let start = Instant::now();
 
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
     let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
 
+    // 检查未下载并发控制
     let (tx, mut rx) = mpsc::channel::<(String, String, u64)>(100);
     for csv_path in csv_paths {
         let tx_sender = tx.clone();
@@ -44,17 +44,40 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
     }
     drop(tx);
 
+    // 文件下载并发控制
+    let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(1000);
     while let Some((meta_path, sign, size)) = rx.recv().await {
         // 执行下载逻辑
         let chunk_size = 1024 * 1024 * 5;
-        download(Arc::clone(&bandwidth), Arc::clone(&client), sign, size,chunk_size).await;
+        let bandwidth_ = Arc::clone(&bandwidth);
+        let client_ = Arc::clone(&client);
+
+        // 并发下载-这里的数量是下载文件的个数
+        let tx_down_ = tx_down.clone();
+        tokio::spawn(async move {
+            let (name, use_ms) = download(bandwidth_, client_, sign, size, chunk_size).await.unwrap();
+            tx_down_.send((name, use_ms)).await.unwrap();
+        });
     }
+    drop(tx_down);
+    while let Some((name, use_ms)) = rx_down.recv().await {
+        // TODO: test
+        tracing::info!("download complete, use: {:?}  part: {:?}", use_ms, name);
+    }
+
+    // 下载任务处理完成
 }
 
 
-async fn download(bandwidth: Arc<Bandwidth>, client: Arc<Client>, sign: String, require_size: u64, _chunk_size: i32){
-    let chunk_size = 1024 * 1024 * 5;
-
+async fn download(
+    bandwidth: Arc<Bandwidth>,
+    client: Arc<Client>,
+    sign: String,
+    require_size: u64,
+    chunk_size: u64
+) -> Result<(String, tokio::time::Duration), Box<dyn std::error::Error>>
+{
+    let start = Instant::now();
 
     let data_path = Arc::new({
         RUNTIME.lock().unwrap().data_path.clone() // 提前获取并释放锁
@@ -69,7 +92,7 @@ async fn download(bandwidth: Arc<Bandwidth>, client: Arc<Client>, sign: String, 
 
     let local_size = httpd::check_file_meta(local_path.clone()).unwrap();
     if local_size == require_size {
-        return
+        return Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()));
     }else {
         tracing::info!("download, start: {}, local: {}, require: {}", reader_ref, local_size, require_size);
     }
@@ -120,8 +143,7 @@ async fn download(bandwidth: Arc<Bandwidth>, client: Arc<Client>, sign: String, 
 
     // 下载完毕触发合并
     tracing::info!("download merge: {}, {:?}", reader_merge, local_path.clone());
-
-
+    Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()))
 }
 
 async fn presign(sign: String) -> Result<String, Box<dyn std::error::Error>>{
