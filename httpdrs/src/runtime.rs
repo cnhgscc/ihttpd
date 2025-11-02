@@ -32,7 +32,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
     let spawn_read = rt.spawn(reader::init());
     let spawn_check = rt.spawn(reader::checkpoint());
-    let spawn_down = rt.spawn(downloader::down());
+    let spawn_down = rt.spawn(downloader::down(Arc::clone(&httpd_bandwidth)));
     let event_tasks = vec![spawn_read, spawn_check, spawn_down];
 
     let _ = rt.block_on(join_all(event_tasks));
