@@ -2,11 +2,11 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::{mpsc};
 use tokio::time::Instant;
+use tokio::io::AsyncWriteExt;
 use reqwest::Client;
 use reqwest::header::{RANGE};
 
 use csv::Reader;
-use tokio::io::AsyncWriteExt;
 use httpdrs_core::{httpd};
 use httpdrs_core::httpd::HttpdMetaReader;
 use httpdrs_core::httpd::Bandwidth;
@@ -50,8 +50,11 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
         let chunk_size = 1024 * 1024 * 5;
         download(Arc::clone(&bandwidth), Arc::clone(&client), sign, size,chunk_size).await;
 
+        // TODO: 程序退出的问题
+        tokio::time::sleep(std::time::Duration::from_millis(10000)).await;
+
     }
-    tracing::info!("download: use {:?}", start.elapsed());
+    tracing::info!("down: use {:?}", start.elapsed());
 }
 
 
@@ -83,7 +86,8 @@ async fn download(bandwidth: Arc<Bandwidth>, client: Arc<Client>, sign: String, 
     let (tx_part, mut rx_part) = mpsc::channel::<(u64, u128)>(100);
     let reader_merge = Arc::clone(&reader_ref);
     tokio::spawn(async move {
-        while let Some((_idx_part,  _use_ms)) = rx_part.recv().await {
+        while let Some((idx_part,  use_ms)) = rx_part.recv().await {
+            tracing::info!("download_part, =========wath===========: {}, {:?}", reader_merge, idx_part);
         }
 
         // 下载完毕触发合并
@@ -163,12 +167,12 @@ pub async fn download_part (
 
     let resp_part = client.get(presign_url.clone()).header(RANGE, range).send().await.ok();
     if resp_part.is_none(){
-        tracing::debug!("download_part: {:?}  {:?} start_pos {}", start.elapsed(), part_path, start_pos);
+        tracing::warn!("download_part: {:?}  {:?} start_pos {}", start.elapsed(), part_path, start_pos);
         return Err("download_part response err".into());
     }
     let resp_bytes = resp_part.unwrap().bytes().await.ok();
     if resp_bytes.is_none(){
-        tracing::debug!("download_part: {:?}  {:?} start_pos {}", start.elapsed(), part_path, start_pos);
+        tracing::warn!("download_part: {:?}  {:?} start_pos {}", start.elapsed(), part_path, start_pos);
         return Err("download_part bytes err".into());
     }
 
@@ -178,7 +182,7 @@ pub async fn download_part (
     file.write_all(&bytes).await?;
 
     let download_size = bytes.len();
-    tracing::info!("download_part: {:?} {:?}, ({}) start_pos {}, end_pos: {}", start.elapsed(), part_path, download_size, start_pos, end_pos);
+    tracing::info!("download_part: completed: ({}), start_pos {}, end_pos: {},  {:?} {:?}", download_size, start_pos, end_pos, start.elapsed() , part_path);
     Ok(download_size as u128)
 }
 
