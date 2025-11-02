@@ -1,4 +1,5 @@
 use std::sync::Arc;
+
 use tokio::fs;
 use tokio::sync::{mpsc};
 use tokio::time::Instant;
@@ -7,9 +8,11 @@ use reqwest::Client;
 use reqwest::header::{RANGE};
 
 use csv::Reader;
+
 use httpdrs_core::{httpd};
 use httpdrs_core::httpd::HttpdMetaReader;
 use httpdrs_core::httpd::Bandwidth;
+
 use crate::stats::RUNTIME;
 
 pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
@@ -108,7 +111,6 @@ async fn download(
 
     tracing::info!("download, parts: {}, {}", total_parts, reader_ref);
 
-
     for idx_part in 0..total_parts {
         let part_start = idx_part * chunk_size;
         let part_end = (idx_part + 1) * chunk_size;
@@ -122,6 +124,7 @@ async fn download(
         let temp_path_ = Arc::clone(&temp_path);
         let client_ = Arc::clone(&client);
         tokio::spawn(async move {
+            // TODO: 最多20判断，防止过多等待
             let _ = bandwidth_.permit(part_size).await; // 带宽控制
             let use_ms = download_part(
                 client_,

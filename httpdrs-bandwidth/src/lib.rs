@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::Notify;
+use tokio::sync::{Semaphore};
+
 
 
 #[derive(Debug)]
@@ -8,7 +10,8 @@ pub struct Bandwidth {
     max_bs: u64, // 最大带宽 bytes
     period_used: AtomicU64, // 已经使用的字节数
 
-    notify: Notify
+    notify: Notify,
+    semaphore: Semaphore,
 }
 
 impl Bandwidth {
@@ -17,6 +20,7 @@ impl Bandwidth {
             max_bs,
             period_used: AtomicU64::new(0),
             notify: Notify::new(),
+            semaphore: Semaphore::new(20),
         }
     }
 
@@ -25,6 +29,7 @@ impl Bandwidth {
             max_bs,
             period_used: AtomicU64::new(0),
             notify: Notify::new(),
+            semaphore: Semaphore::new(50),
         };
         Arc::new(bw)
     }
@@ -40,6 +45,7 @@ impl Bandwidth {
     }
 
     pub async fn permit(&self, desired_bytes: u64) -> Result<u64, Box<dyn std::error::Error>>{
+
         let start = tokio::time::Instant::now();
 
         let mut loop_count = 0;
@@ -47,6 +53,7 @@ impl Bandwidth {
             let old_used = self.period_used.fetch_add(desired_bytes, Ordering::Relaxed);
             if old_used + desired_bytes > self.max_bs {
                 self.period_used.fetch_sub(desired_bytes, Ordering::Relaxed);
+                let _permit = self.semaphore.acquire().await?;
                 tracing::info!("bandwidth, waiting -> desired: {}  exceed max_bs: {}", desired_bytes, self.max_bs);
                 self.notify.notified().await;
                 if loop_count > 0 {

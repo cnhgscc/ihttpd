@@ -67,8 +67,8 @@ pub(crate) async fn checkpoint() {
                         tracing::warn!("read_checkpoint: {} size not match, local_size: {}, meta_size: {}", httpd_reader, reader_size, size);
                         continue
                     }
-                    download_bytes += 1;
-                    download_count += size;
+                    download_bytes += size;
+                    download_count += 1;
                 }
             }
             tx_sender.send((meta_path.clone(), download_bytes, download_count)).await.unwrap();
