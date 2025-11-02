@@ -61,8 +61,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
     }
     drop(tx_down);
     while let Some((name, use_ms)) = rx_down.recv().await {
-        // TODO: test
-        tracing::info!("download complete, use: {:?}  part: {:?}", use_ms, name);
+        tracing::info!("download_complete, use: {:?}, file: {:?}", use_ms, name);
     }
 
     // 下载任务处理完成
@@ -142,7 +141,10 @@ async fn download(
     }
 
     // 下载完毕触发合并
-    tracing::info!("download merge: {}, {:?}", reader_merge, local_path.clone());
+    tracing::info!("download_merge: start, {}, {:?}", reader_merge, local_path.clone());
+    let merge_use = download_merge(Arc::clone(&reader_merge), total_parts, data_path.as_str(), temp_path.as_str()).await?;
+    tracing::info!("download_merge: end, {}, use: {:?}, path: {:?}", reader_merge, merge_use, local_path.clone());
+
     Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()))
 }
 
@@ -201,16 +203,17 @@ pub async fn download_part (
 }
 
 pub async  fn download_merge (
-    reader: HttpdMetaReader,
+    reader: Arc<HttpdMetaReader>,
     chunk_nums: u64,
     data_path: &str,
     temp_path: &str,
-) -> Result<u128, Box<dyn std::error::Error>>
+) -> Result< tokio::time::Duration, Box<dyn std::error::Error>>
 {
 
     let start = Instant::now();
 
     let file_path = reader.local_absolute_path_str(data_path);
+    println!("download_merge: file_path, {:?}", file_path);
     // let _ext = Path::new(file_path).extension().and_then(|s| s.to_str()).unwrap();
 
     let _ = tokio::fs::remove_file(file_path.clone()).await.unwrap_or( ());
@@ -231,5 +234,5 @@ pub async  fn download_merge (
         let _ = tokio::fs::remove_file(part_path).await.unwrap_or( ());
     }
 
-    Ok(start.elapsed().as_millis())
+    Ok(start.elapsed())
 }
