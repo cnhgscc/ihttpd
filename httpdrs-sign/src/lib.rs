@@ -1,4 +1,4 @@
-use crate::reader::{ReaderData, ReaderRequest, ReaderResponse};
+use crate::reader::{ReaderRequest, ReaderResponse};
 
 pub mod reader;
 pub mod jwtsign;

@@ -10,4 +10,5 @@ path = "src/lib.rs"
 
 [dependencies]
 tokio = { workspace = true }
+tracing = "0.1.41"
 

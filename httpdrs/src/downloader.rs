@@ -18,7 +18,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
     let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
 
     // 检查未下载并发控制
-    let (tx, mut rx) = mpsc::channel::<(String, String, u64)>(100);
+    let (tx, mut rx) = mpsc::channel::<(String, String, u64)>(10000);
     for csv_path in csv_paths {
         let tx_sender = tx.clone();
         let data_path = {
@@ -38,6 +38,8 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
                         continue
                     }
                     tx_sender.send((meta_path.clone(), sign, size)).await.unwrap();
+                }else {
+                    tx_sender.send((meta_path.clone(), sign, size)).await.unwrap();
                 }
             }
         });
@@ -46,7 +48,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
 
     // 文件下载并发控制
     let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(1000);
-    while let Some((meta_path, sign, size)) = rx.recv().await {
+    while let Some((_meta_path, sign, size)) = rx.recv().await {
         // 执行下载逻辑
         let chunk_size = 1024 * 1024 * 5;
         let bandwidth_ = Arc::clone(&bandwidth);
@@ -85,16 +87,18 @@ async fn download(
         RUNTIME.lock().unwrap().temp_path.clone() // 提前获取并释放锁
     });
 
-    let reader_ref = Arc::new(httpd::reader_parse(sign.clone()).unwrap());
+    let reader_ref = Arc::new(httpd::reader_parse(sign.clone())?);
     let local_path =  reader_ref.local_absolute_path_str(data_path.as_str());
     tracing::debug!("download, sign: {} -> {:?}", reader_ref, reader_ref.local_absolute_path_str(data_path.as_str()));
 
-    let local_size = httpd::check_file_meta(local_path.clone()).unwrap();
-    if local_size == require_size {
-        return Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()));
-    }else {
-        tracing::info!("download, start: {}, local: {}, require: {}", reader_ref, local_size, require_size);
+    if let Some(local_size) = httpd::check_file_meta(local_path.clone()){
+        if local_size == require_size {
+            return Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()));
+        }else {
+            tracing::info!("download, start: {}, local: {}, require: {}", reader_ref, local_size, require_size);
+        }
     }
+
 
     let total_parts =  (require_size + chunk_size - 1) / chunk_size;
 
@@ -213,11 +217,13 @@ pub async  fn download_merge (
     let start = Instant::now();
 
     let file_path = reader.local_absolute_path_str(data_path);
-    println!("download_merge: file_path, {:?}", file_path);
     // let _ext = Path::new(file_path).extension().and_then(|s| s.to_str()).unwrap();
 
     let _ = tokio::fs::remove_file(file_path.clone()).await.unwrap_or( ());
 
+    if let Some(parent) = std::path::Path::new(&file_path).parent() {
+        fs::create_dir_all(parent).await?;
+    }
     let mut dest_file = fs::OpenOptions::new()
         .create(true)
         .append(true)

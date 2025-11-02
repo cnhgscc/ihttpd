@@ -13,7 +13,6 @@ pub(crate) async fn reset_period(
             _ = tokio::time::sleep(tokio::time::Duration::from_millis(1000)) => {
                 let speed = reset_bandwidth.reset_period(1000);
                 RUNTIME.lock().unwrap().download_speed = speed;
-                tracing::info!("Bandwidth reset: {:?}", reset_bandwidth);
             }
             _ = token_bandwidth.cancelled() => {
                 break;
