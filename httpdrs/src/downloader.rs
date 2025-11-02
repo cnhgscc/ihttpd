@@ -29,7 +29,6 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
             let mut csv_reader = Reader::from_path(meta_path.as_str()).unwrap();
 
             for raw_result in csv_reader.records(){
-                tracing::debug!("init reading: {}, {:?}", meta_path, raw_result);
                 let raw_line = raw_result.unwrap();
                 let sign = raw_line.get(0).unwrap().to_string();
                 let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
@@ -49,12 +48,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
         // 执行下载逻辑
         let chunk_size = 1024 * 1024 * 5;
         download(Arc::clone(&bandwidth), Arc::clone(&client), sign, size,chunk_size).await;
-
-        // TODO: 程序退出的问题
-        tokio::time::sleep(std::time::Duration::from_millis(10000)).await;
-
     }
-    tracing::info!("down: use {:?}", start.elapsed());
 }
 
 
@@ -71,7 +65,7 @@ async fn download(bandwidth: Arc<Bandwidth>, client: Arc<Client>, sign: String, 
 
     let reader_ref = Arc::new(httpd::reader_parse(sign.clone()).unwrap());
     let local_path =  reader_ref.local_absolute_path_str(data_path.as_str());
-    tracing::info!("download, sign: {} -> {:?}", reader_ref, reader_ref.local_absolute_path_str(data_path.as_str()));
+    tracing::debug!("download, sign: {} -> {:?}", reader_ref, reader_ref.local_absolute_path_str(data_path.as_str()));
 
     let local_size = httpd::check_file_meta(local_path.clone()).unwrap();
     if local_size == require_size {
@@ -85,15 +79,6 @@ async fn download(bandwidth: Arc<Bandwidth>, client: Arc<Client>, sign: String, 
     // 每个文件都创建一下分片下载的最大检查队列
     let (tx_part, mut rx_part) = mpsc::channel::<(u64, u128)>(100);
     let reader_merge = Arc::clone(&reader_ref);
-    tokio::spawn(async move {
-        while let Some((idx_part,  use_ms)) = rx_part.recv().await {
-            tracing::info!("download_part, =========wath===========: {}, {:?}", reader_merge, idx_part);
-        }
-
-        // 下载完毕触发合并
-        tracing::info!("download, merge: {}, {:?}", reader_merge, local_path.clone());
-
-    });
 
     tracing::info!("download, parts: {}, {}", total_parts, reader_ref);
 
@@ -128,6 +113,13 @@ async fn download(bandwidth: Arc<Bandwidth>, client: Arc<Client>, sign: String, 
         });
     }
     drop(tx_part);
+
+    while let Some((idx_part,  use_ms)) = rx_part.recv().await {
+        tracing::info!("download_part, complete {}, use: {}  part: {:?}", reader_merge, use_ms, idx_part);
+    }
+
+    // 下载完毕触发合并
+    tracing::info!("download merge: {}, {:?}", reader_merge, local_path.clone());
 
 
 }
