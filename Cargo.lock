@@ -505,6 +505,7 @@ dependencies = [
  "futures",
  "httpdrs-core",
  "httpdrs-logger",
+ "indicatif",
  "reqwest",
  "tokio",
  "tokio-util",

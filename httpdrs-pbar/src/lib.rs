@@ -1,4 +1,5 @@
 use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{HumanBytes, HumanCount};
 
 
 pub fn create() -> ProgressBar {
@@ -13,8 +14,15 @@ pub fn create() -> ProgressBar {
 }
 
 pub fn format(
-    require_count: i32,
-    require_bytes: i32,
+    require_bytes: u64,
+    require_count: u64,
+    download_speed: u64,
 )-> String{
-    format!("| download({}/{})", require_count,  require_bytes)
+
+    let require_bytes_human = HumanBytes(require_bytes);
+    let require_count_human = HumanCount(require_count);
+
+    let download_speed_human = HumanBytes(download_speed);
+
+    format!("| {}/s | download({}/{})", download_speed_human, require_count_human,  require_bytes_human)
 }

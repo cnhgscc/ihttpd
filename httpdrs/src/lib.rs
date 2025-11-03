@@ -10,6 +10,7 @@ mod bandwidth;
 mod stats;
 mod reader;
 mod downloader;
+mod watch;
 
 pub mod logger {
     pub use httpdrs_logger::*;

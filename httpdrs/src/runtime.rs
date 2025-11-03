@@ -7,7 +7,7 @@ use reqwest::Client;
 use futures::future::join_all;
 
 use crate::core::{httpd, pbar};
-use crate::{bandwidth, downloader, reader};
+use crate::{bandwidth, downloader, reader, watch};
 use crate::stats::RUNTIME;
 
 
@@ -42,6 +42,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
     let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*20); // 网络带宽控制
     rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
+    // rt.spawn(watch::init(pb.clone(), rt_token.clone()));
 
     let spawn_read = rt.spawn(reader::init());
     let spawn_check = rt.spawn(reader::checkpoint());
@@ -53,6 +54,14 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
     rt_token.cancel();
     tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
+    let (
+        runtime_require_bytes, runtime_require_count, runtime_download_speed
+    ) = {
+        let r = RUNTIME.lock().unwrap();
+        (r.require_bytes, r.require_count, r.download_speed)
+    };
+
+    pb.set_message(pbar::format(runtime_require_bytes, runtime_require_count, runtime_download_speed));
     pb.finish();
 
     Ok(())
