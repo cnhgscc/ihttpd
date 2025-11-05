@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use chrono::Duration;
 use tokio::fs;
 use tokio::sync::{mpsc};
 use tokio::time::Instant;
@@ -8,11 +8,11 @@ use reqwest::Client;
 use reqwest::header::{RANGE};
 
 use csv::Reader;
-
+use tracing_subscriber::fmt::time;
 use httpdrs_core::{httpd};
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use httpdrs_core::httpd::Bandwidth;
-
+use httpdrs_core::pbar::format;
 use crate::stats::RUNTIME;
 
 pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, client_sign: Arc<SignatureClient>) {
@@ -60,15 +60,30 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
         // 并发下载-这里的数量是下载文件的个数
         let tx_down_ = tx_down.clone();
         tokio::spawn(async move {
-            let (name, use_ms) = download(
+            let (download_name, download_duration) = match download(
                 bandwidth_,
                 client_down,
                 client_sign,
                 sign,
                 size,
                 chunk_size
-            ).await.unwrap();
-            tx_down_.send((name, use_ms)).await.unwrap();
+            ).await{
+                Ok((download_name, download_duration)) => {
+                    (download_name, Option::from(download_duration))
+                }
+                Err(e) => {
+                    ("".to_string(), None)
+                }
+            };
+
+           match download_duration {
+               Some(download_duration) => {
+                   tx_down_.send((download_name, download_duration)).await.unwrap();
+               }
+               None => {
+               }
+           }
+
         });
     }
     drop(tx_down);
@@ -114,7 +129,7 @@ async fn download(
     let total_parts =  (require_size + chunk_size - 1) / chunk_size;
 
     // 每个文件都创建一下分片下载的最大检查队列
-    let (tx_part, mut rx_part) = mpsc::channel::<(u64, u128)>(100);
+    let (tx_part, mut rx_part) = mpsc::channel::<(u64, u128, i32)>(100);
     let reader_merge = Arc::clone(&reader_ref);
 
     tracing::info!("download, parts: {}, {}", total_parts, reader_ref);
@@ -133,9 +148,9 @@ async fn download(
         let client_down_span = Arc::clone(&client_down);
         let client_sign_span = Arc::clone(&client_sign);
         tokio::spawn(async move {
-            // TODO: 最多20判断，防止过多等待
             let _ = bandwidth_.permit(part_size).await; // 带宽控制
-            let use_ms = download_part(
+
+            let (download_len, download_signal)=  match download_part(
                 client_down_span,
                 client_sign_span,
                 reader_,
@@ -146,22 +161,39 @@ async fn download(
                 sign_,
                 data_path_.as_str(),
                 temp_path_.as_str(),
-            ).await.ok();
+            ).await{
+                Ok(resp_len) => {
+                    (resp_len, 1)
+                }
+                Err(e) => {
+                    tracing::error!("download_part, error: {}, part: {:?}", e, idx_part);
+                    (0, 0)
+                }
+            };
 
-            tx_part_.send((idx_part, use_ms.unwrap())).await.unwrap();
+            tx_part_.send((idx_part, download_len, download_signal)).await.unwrap();
         });
     }
     drop(tx_part);
 
-    while let Some((idx_part,  use_ms)) = rx_part.recv().await {
-        tracing::info!("download_part, complete {}, use: {}  part: {:?}", reader_merge, use_ms, idx_part);
+    let mut completed_parts = 0;
+    while let Some((idx_part,  download_len, download_signal)) = rx_part.recv().await {
+            completed_parts += 1;
+        tracing::info!("download_part, complete {}, use: {}  part: {:?}, {}", reader_merge, download_len, idx_part, download_signal);
     }
 
     // 下载完毕触发合并
-    tracing::info!("download_merge: start, {}, {:?}", reader_merge, local_path.clone());
-    let merge_use = download_merge(Arc::clone(&reader_merge), total_parts, data_path.as_str(), temp_path.as_str()).await?;
-    tracing::info!("download_merge: end, {}, use: {:?}, path: {:?}", reader_merge, merge_use, local_path.clone());
-
+    if completed_parts == total_parts {
+        match download_merge(Arc::clone(&reader_merge), total_parts, data_path.as_str(), temp_path.as_str()).await{
+            Ok(use_ms) => {
+                tracing::info!("download_merge, use: {:?}", use_ms);
+            },
+            Err(e) => {
+                tracing::error!("download_merge, error: {}", e);
+                return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "download_merge error")))
+            }
+        };
+    }
     Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()))
 }
 
@@ -193,41 +225,72 @@ pub async fn download_part (
     let start = Instant::now();
 
 
-    let presign_url =  presign(sign.clone(), client_sign).await?;
+    let presign_url =  match presign(sign.clone(), client_sign).await{
+        Ok(presign_url) => {
+            presign_url
+        },
+        Err(err) => {
+            return Err(format!("download_err, presign err: {}", err).into());
+        }
+    };
+
+    let presign_url = match presign_url.as_str() {
+        "" => {
+            return Err("download_err, presign_url is empty".into());
+        },
+        _ => {
+            presign_url
+        }
+    };
+
     let part_path = reader_ref.local_part_path(data_path, idx_part, temp_path);
     let range = format!("bytes={}-{}", start_pos, end_pos);
-    tracing::debug!("download_part, presign: {}", presign_url);
+    tracing::info!("download_part, presign: {}", presign_url);
 
     let resp_part = client_down.get(presign_url.clone()).header(RANGE, range).send().await;
+    let resp_part = match resp_part {
+        Ok(resp_part) => {
+            match  resp_part.status().as_u16(){
+                200..=299 => {
+                    resp_part
+                },
+                _ => {
+                    return Err(format!("download_err, resp status is {}, {}", resp_part.status(), presign_url).into());
+                }
+            }
+        },
+        Err(err) => {
+            return Err(format!("download_err, response err: {}", err).into());
+        }
+    };
 
-    if  resp_part.is_err(){
-        let err = resp_part.unwrap_err();
-        tracing::warn!("download_part: {:?}  {:?} start_pos {}, error: {}", start.elapsed(), part_path, start_pos, err);
-        return Err(format!("download_part, response err: {}", err).into());
-    }
+    let resp_byte = match  resp_part.bytes().await.ok(){
+        Some(resp_bytes) => {
+            resp_bytes
+        },
+        None => {
+            return Err("download_err, to bytes err".into());
+        }
+    };
 
-    let status_code = resp_part.as_ref().unwrap().status();
-    tracing::info!("download_part: {:?}  {:?} index: {}, status: {}", start.elapsed(), part_path, idx_part, status_code);
-    if status_code == 403 {
-        tracing::warn!("download_err: {:?}  {:?}", start.elapsed(), presign_url.clone());
-        return Err(format!("download_part, response err: {}", 403).into());
-    }
+    let mut file = match fs::File::create(part_path.clone()).await {
+        Ok(file) => file,
+        Err(err) => {
+            return Err(format!("download_err, file create err, {:?}", err).into());
+        }
+    };
 
-    let resp_bytes = resp_part.unwrap().bytes().await.ok();
-    if resp_bytes.is_none(){
-        tracing::warn!("download_part: {:?}  {:?} idx_part {}", start.elapsed(), part_path, idx_part);
-        return Err("download_part bytes err".into());
-    }
+    let resp_len = match file.write_all(&resp_byte).await{
+        Ok(_) => {
+            resp_byte.len()
+        },
+        Err(err) => {
+            return Err(format!("download_err, write_all err: {}", err).into());
+        }
+    };
 
-    let bytes = resp_bytes.unwrap();
-
-    let mut file = fs::File::create(part_path.clone()).await?;
-    file.write_all(&bytes).await?;
-
-    let download_size = bytes.len();
-    RUNTIME.lock().unwrap().download_bytes += download_size as u64;
-    tracing::info!("download_part: completed: ({}), start_pos {}, end_pos: {},  {:?} {:?}", download_size, start_pos, end_pos, start.elapsed() , part_path);
-    Ok(download_size as u128)
+    tracing::info!("download_part: completed: ({}), start_pos {}, end_pos: {},  {:?} {:?}", resp_len, start_pos, end_pos, start.elapsed() , part_path);
+    Ok(resp_len as u128)
 }
 
 pub async  fn download_merge (
@@ -241,8 +304,6 @@ pub async  fn download_merge (
     let start = Instant::now();
 
     let file_path = reader.local_absolute_path_str(data_path);
-    // let _ext = Path::new(file_path).extension().and_then(|s| s.to_str()).unwrap();
-
     let _ = tokio::fs::remove_file(file_path.clone()).await.unwrap_or( ());
 
     if let Some(parent) = std::path::Path::new(&file_path).parent() {
