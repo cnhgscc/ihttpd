@@ -8,6 +8,20 @@ pub(crate) async fn init(pb:ProgressBar, token_bandwidth: CancellationToken){
     loop {
         tokio::select! {
             _ = tokio::time::sleep(tokio::time::Duration::from_millis(300)) => {
+                let (require_bytes, require_count) = {
+                    let runtime = RUNTIME.lock().unwrap();
+                    (runtime.require_bytes, runtime.require_count)
+                };
+
+                let (completed_bytes, completed_count) = {
+                    let runtime = RUNTIME.lock().unwrap();
+                    (runtime.completed_bytes, runtime.completed_count)
+                };
+
+                tracing::info!(
+                    "==========require_bytes: {}, require_count: {}, completed_bytes: {}, completed_count: {}==============",
+                    require_bytes, require_count, completed_bytes, completed_count);
+
                 pb.set_length(RUNTIME.lock().unwrap().require_count);
                 // pb.set_position(RUNTIME.lock().unwrap().download_count);
             }

@@ -216,6 +216,7 @@ pub async fn download_part (
     file.write_all(&bytes).await?;
 
     let download_size = bytes.len();
+    RUNTIME.lock().unwrap().download_bytes += download_size as u64;
     tracing::info!("download_part: completed: ({}), start_pos {}, end_pos: {},  {:?} {:?}", download_size, start_pos, end_pos, start.elapsed() , part_path);
     Ok(download_size as u128)
 }
@@ -253,6 +254,8 @@ pub async  fn download_merge (
         let part_path = reader.local_part_path(data_path, idx_part, temp_path);
         let _ = tokio::fs::remove_file(part_path).await.unwrap_or( ());
     }
+
+    RUNTIME.lock().unwrap().download_count += 1;
 
     Ok(start.elapsed())
 }

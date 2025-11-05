@@ -44,7 +44,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
     let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*20); // 网络带宽控制
     rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
-    // rt.spawn(watch::init(pb.clone(), rt_token.clone()));
+    rt.spawn(watch::init(pb.clone(), rt_token.clone()));
 
     let spawn_read = rt.spawn(reader::init());
     let spawn_check = rt.spawn(reader::checkpoint());
