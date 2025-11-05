@@ -23,7 +23,8 @@ pub(crate) async fn init(pb:ProgressBar, token_bandwidth: CancellationToken){
                     require_bytes, require_count, completed_bytes, completed_count);
 
                 pb.set_length(RUNTIME.lock().unwrap().require_count);
-                // pb.set_position(RUNTIME.lock().unwrap().download_count);
+                pb.set_position(completed_count + RUNTIME.lock().unwrap().download_count);
+                pb.set_message(pbar::format(require_bytes, require_count, RUNTIME.lock().unwrap().download_speed));
             }
             _ = token_bandwidth.cancelled() => {
                 break;
