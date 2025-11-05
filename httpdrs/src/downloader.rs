@@ -168,6 +168,7 @@ async fn download(
                 }
             };
 
+
             tx_part_.send((idx_part, download_len, download_signal)).await.unwrap();
         });
     }
@@ -175,7 +176,8 @@ async fn download(
 
     let mut completed_parts = 0;
     while let Some((idx_part,  download_len, download_signal)) = rx_part.recv().await {
-            completed_parts += 1;
+        completed_parts += 1;
+        RUNTIME.lock().unwrap().download_bytes += download_len as u64;
         tracing::info!("download_part, complete {}, use: {}  part: {:?}, {}", reader_merge, download_len, idx_part, download_signal);
     }
 
