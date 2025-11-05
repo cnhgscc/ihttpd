@@ -13,8 +13,11 @@ pub struct RuntimeContext{
 
     pub download_speed: u64,
 
-    pub download_bytes: u64,
-    pub download_count: u64,
+    pub completed_count: u64,
+    pub completed_bytes: u64,
+
+    // pub download_bytes: u64,
+    // pub download_count: u64,
 }
 
 pub(crate)  static RUNTIME: LazyLock<Arc<Mutex<RuntimeContext>>> =

@@ -80,8 +80,8 @@ pub(crate) async fn checkpoint() {
     while let Some((_csv, bytes, size)) = rx.recv().await {
         // 执行下载逻辑
         let mut rt = RUNTIME.lock().unwrap();
-        rt.download_bytes += bytes;
-        rt.download_count += size;
+        rt.completed_bytes += bytes;
+        rt.completed_count += size;
     }
     tracing::info!("checkpoint: use {:?}", start.elapsed());
 }
