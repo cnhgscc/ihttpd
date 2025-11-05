@@ -28,14 +28,55 @@ impl SignatureClient {
         Ok(text)
     }
 
-    pub async fn reader_get(&self, sign_data: String) -> Result<ReaderResponse, reqwest::Error> {
+    pub async fn reader_get(&self, sign_data: String) -> Result<ReaderResponse, Box<dyn std::error::Error>> {
+
         let req = ReaderRequest::new("public", sign_data);
         let reader_presign = self.reader_presign.as_str();
         tracing::debug!("reader_presign: {}, req: {}", reader_presign, req);
-        let resp = self.client.post(reader_presign).json(&req).send().await?;
-        let resp_data: ReaderResponse = resp.json().await?;
-        tracing::debug!("reader_presign: {}, resp: {:?}", reader_presign, resp_data);
-        Ok(resp_data)
+
+        let max_retries = 10;
+        let mut retry_count = 0;
+        loop {
+            match self.client.post(reader_presign).json(&req).send().await {
+                Ok(resp) => {
+                    let resp_data: ReaderResponse = match resp.json().await {
+                        Ok(data) => data,
+                        Err(e) => {
+                            retry_count += 1;
+                            if retry_count >= max_retries {
+                                tracing::error!("reader_presign: {}, json parse error: {}", reader_presign, e);
+                                return Err("reader_presign: json parse error".into())
+                            }
+                            tokio::time::sleep(tokio::time::Duration::from_millis(1000 * retry_count)).await;
+                            continue;
+                        }
+                    };
+
+                    match resp_data.code {
+                        0 => {
+                            return Ok(resp_data)
+                        }
+                        _ => {
+                            retry_count += 1;
+                            if retry_count >= max_retries {
+                                tracing::error!("reader_presign: {}, retrying...", reader_presign);
+                                return Err("reader_presign: status_code err".into());
+                            }
+                            tokio::time::sleep(tokio::time::Duration::from_millis(1000 * retry_count)).await;
+                            continue;
+                        }
+                    }
+                }
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count >= max_retries {
+                        tracing::error!("reader_presign: {}, error: {}", reader_presign, e);
+                        return Err(e.to_string().into());
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(1000 * retry_count)).await;
+                }
+            }
+        }
     }
 
     pub async fn writer_get(&self, sign_data: String) -> Result<String, reqwest::Error> {

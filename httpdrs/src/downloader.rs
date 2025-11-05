@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use chrono::Duration;
 use tokio::fs;
 use tokio::sync::{mpsc};
 use tokio::time::Instant;
@@ -8,11 +7,9 @@ use reqwest::Client;
 use reqwest::header::{RANGE};
 
 use csv::Reader;
-use tracing_subscriber::fmt::time;
 use httpdrs_core::{httpd};
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use httpdrs_core::httpd::Bandwidth;
-use httpdrs_core::pbar::format;
 use crate::stats::RUNTIME;
 
 pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, client_sign: Arc<SignatureClient>) {
@@ -72,7 +69,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
                     (download_name, Option::from(download_duration))
                 }
                 Err(e) => {
-                    ("".to_string(), None)
+                    (e.to_string(), None)
                 }
             };
 
@@ -247,20 +244,33 @@ pub async fn download_part (
     let range = format!("bytes={}-{}", start_pos, end_pos);
     tracing::info!("download_part, presign: {}", presign_url);
 
-    let resp_part = client_down.get(presign_url.clone()).header(RANGE, range).send().await;
-    let resp_part = match resp_part {
-        Ok(resp_part) => {
-            match  resp_part.status().as_u16(){
-                200..=299 => {
-                    resp_part
-                },
-                _ => {
-                    return Err(format!("download_err, resp status is {}, {}", resp_part.status(), presign_url).into());
+
+    let max_retries = 20;
+    let mut retry_count = 0;
+    let resp_part = loop {
+        let resp_part = client_down.get(presign_url.clone()).header(RANGE, range.clone()).send().await;
+        match resp_part {
+            Ok(resp_part) => {
+                match resp_part.status().as_u16() {
+                    200..=299 => {
+                        break resp_part;
+                    },
+                    _ => {
+                        retry_count += 1;
+                        if retry_count >= max_retries {
+                            return Err(format!("download_err, resp status is {}, {}", resp_part.status(), presign_url).into());
+                        }
+                        tokio::time::sleep(tokio::time::Duration::from_millis(100 * retry_count)).await;
+                    }
                 }
+            },
+            Err(err) => {
+                retry_count += 1;
+                if retry_count >= max_retries {
+                    return Err(format!("download_err, reqwest_retry: {}  err: {}", retry_count, err).into());
+                }
+                tokio::time::sleep(tokio::time::Duration::from_millis(2000 * retry_count)).await;
             }
-        },
-        Err(err) => {
-            return Err(format!("download_err, response err: {}", err).into());
         }
     };
 
@@ -311,15 +321,25 @@ pub async  fn download_merge (
             fs::create_dir_all(parent).await?;
         }
     }
-    let mut dest_file = fs::OpenOptions::new()
+    let mut dest_file = match fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(file_path)
-        .await?;
+        .await{
+        Ok(dest_file) => dest_file,
+        Err(err) => {
+            return Err(format!("download_merge, open file err: {}", err).into());
+        }
+    };
 
     for idx_part in 0..chunk_nums {
         let part_path = reader.local_part_path(data_path, idx_part, temp_path);
-        let mut part_file = fs::File::open(part_path).await?;
+        let mut part_file = match fs::File::open(part_path).await{
+            Ok(part_file) => part_file,
+            Err(err) => {
+                return Err(format!("download_merge, open part file err: {}", err).into());
+            }
+        };
         tokio::io::copy(&mut part_file, &mut dest_file).await?;
     }
     for idx_part in 0..chunk_nums {
