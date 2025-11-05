@@ -11,13 +11,15 @@ pub struct SignatureClient{
 
 
 impl SignatureClient {
-    pub fn new() -> Self {
+
+    pub fn new(reader_presign: String) -> Self {
+        let client = reqwest::Client::new();
+        let reader_presign = reader_presign ;
         SignatureClient {
-            client: reqwest::Client::new(),
-            reader_presign: "http://127.0.0.1:30000/api/v1/provider-storage/download/presign".to_string(),
+            client,
+            reader_presign: reader_presign.to_string(),
         }
     }
-
     pub async fn ping_get(&self) -> Result<String, reqwest::Error> {
         let response = self.client.get("https://www.baidu.com")
             .send()
@@ -47,7 +49,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ping() {
-        let signature = SignatureClient::new();
+        let signature = SignatureClient::new("http://127.0.0.1:30000/v1/storage/download/presign".to_string());
         let result = signature.ping_get().await.unwrap();
         println!("{}", result)
     }

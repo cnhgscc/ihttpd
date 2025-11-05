@@ -10,12 +10,12 @@ use reqwest::header::{RANGE};
 use csv::Reader;
 
 use httpdrs_core::{httpd};
-use httpdrs_core::httpd::HttpdMetaReader;
+use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use httpdrs_core::httpd::Bandwidth;
 
 use crate::stats::RUNTIME;
 
-pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
+pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, client_sign: Arc<SignatureClient>) {
 
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
     let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
@@ -55,12 +55,19 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
         // 执行下载逻辑
         let chunk_size = 1024 * 1024 * 5;
         let bandwidth_ = Arc::clone(&bandwidth);
-        let client_ = Arc::clone(&client);
-
+        let client_down = Arc::clone(&client_down);
+        let client_sign = Arc::clone(&client_sign);
         // 并发下载-这里的数量是下载文件的个数
         let tx_down_ = tx_down.clone();
         tokio::spawn(async move {
-            let (name, use_ms) = download(bandwidth_, client_, sign, size, chunk_size).await.unwrap();
+            let (name, use_ms) = download(
+                bandwidth_,
+                client_down,
+                client_sign,
+                sign,
+                size,
+                chunk_size
+            ).await.unwrap();
             tx_down_.send((name, use_ms)).await.unwrap();
         });
     }
@@ -75,7 +82,8 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client: Arc<Client>) {
 
 async fn download(
     bandwidth: Arc<Bandwidth>,
-    client: Arc<Client>,
+    client_down: Arc<Client>,
+    client_sign: Arc<SignatureClient>,
     sign: String,
     require_size: u64,
     chunk_size: u64
@@ -122,12 +130,14 @@ async fn download(
         let sign_ = sign.clone();
         let data_path_ = Arc::clone(&data_path);
         let temp_path_ = Arc::clone(&temp_path);
-        let client_ = Arc::clone(&client);
+        let client_down_span = Arc::clone(&client_down);
+        let client_sign_span = Arc::clone(&client_sign);
         tokio::spawn(async move {
             // TODO: 最多20判断，防止过多等待
             let _ = bandwidth_.permit(part_size).await; // 带宽控制
             let use_ms = download_part(
-                client_,
+                client_down_span,
+                client_sign_span,
                 reader_,
                 idx_part,
                 part_start,
@@ -155,10 +165,10 @@ async fn download(
     Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()))
 }
 
-async fn presign(sign: String) -> Result<String, Box<dyn std::error::Error>>{
+async fn presign(sign: String, with_client: Arc<SignatureClient>) -> Result<String, Box<dyn std::error::Error>>{
     let start = Instant::now();
-    let chttp = httpd::SignatureClient::new();
-    let reader = chttp.reader_get(sign).await.unwrap();
+    // let chttp = httpd::SignatureClient::new("http://127.0.0.1:30000/v1/storage/download/presign".to_string());
+    let reader = with_client.reader_get(sign).await.unwrap();
     if reader.code != 0 {
         return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "status_code != 200")))
     }
@@ -168,7 +178,8 @@ async fn presign(sign: String) -> Result<String, Box<dyn std::error::Error>>{
 
 
 pub async fn download_part (
-    client: Arc<Client>,
+    client_down: Arc<Client>,
+    client_sign: Arc<SignatureClient>,
     reader_ref: Arc<HttpdMetaReader>,
     idx_part: u64,
     start_pos: u64,
@@ -182,13 +193,13 @@ pub async fn download_part (
     let start = Instant::now();
 
 
-    let presign_url =  presign(sign.clone()).await?;
+    let presign_url =  presign(sign.clone(), client_sign).await?;
     let part_path = reader_ref.local_part_path(data_path, idx_part, temp_path);
     let range = format!("bytes={}-{}", start_pos, end_pos);
     tracing::debug!("download_part, presign: {}", presign_url);
     tracing::info!("download, part: {}:{} {}-> {:?}", reader_ref, idx_part, range, part_path);
 
-    let resp_part = client.get(presign_url.clone()).header(RANGE, range).send().await.ok();
+    let resp_part = client_down.get(presign_url.clone()).header(RANGE, range).send().await.ok();
     if resp_part.is_none(){
         tracing::warn!("download_part: {:?}  {:?} start_pos {}", start.elapsed(), part_path, start_pos);
         return Err("download_part response err".into());
