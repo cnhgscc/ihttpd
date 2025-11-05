@@ -11,7 +11,7 @@ use crate::{bandwidth, downloader, reader, watch};
 use crate::stats::RUNTIME;
 
 
-pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
+pub fn start_multi_thread(max_bandwidth: u64, use_loc: String, presign_api: String) -> Result<(), Box<dyn std::error::Error>>{
 
     let rt = runtime::Builder::new_multi_thread()
         .worker_threads(100)
@@ -21,9 +21,9 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
 
     let rt_token = CancellationToken::new();
 
-    RUNTIME.lock().unwrap().meta_path = "/Users/hgshicc/test/flagdataset/AIM-500/meta".to_string();
-    RUNTIME.lock().unwrap().data_path = "/Users/hgshicc/test/flagdataset/AIM-500/data".to_string();
-    RUNTIME.lock().unwrap().temp_path = "/Users/hgshicc/test/flagdataset/AIM-500/temp".to_string();
+    RUNTIME.lock().unwrap().meta_path = format!("{}/meta", use_loc);
+    RUNTIME.lock().unwrap().data_path = format!("{}/data", use_loc);
+    RUNTIME.lock().unwrap().temp_path = format!("{}/temp", use_loc);
 
     let client_down = Arc::new(Client::builder()
         .pool_max_idle_per_host(1000)
@@ -34,7 +34,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
         .build()
         .expect("Failed to build reqwest client"));
 
-    let client_sign = Arc::new(SignatureClient::new("http://127.0.0.1:30000/v1/storage/download/presign".to_string()));
+    let client_sign = Arc::new(SignatureClient::new(presign_api));
 
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 
@@ -42,7 +42,7 @@ pub fn start_multi_thread() -> Result<(), Box<dyn std::error::Error>>{
     let pb = pbar::create();
 
 
-    let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*20); // 网络带宽控制
+    let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*(max_bandwidth+5)); // 网络带宽控制
     rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
     rt.spawn(watch::init(pb.clone(), rt_token.clone()));
 

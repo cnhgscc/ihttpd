@@ -197,16 +197,25 @@ pub async fn download_part (
     let part_path = reader_ref.local_part_path(data_path, idx_part, temp_path);
     let range = format!("bytes={}-{}", start_pos, end_pos);
     tracing::debug!("download_part, presign: {}", presign_url);
-    tracing::info!("download, part: {}:{} {}-> {:?}", reader_ref, idx_part, range, part_path);
 
-    let resp_part = client_down.get(presign_url.clone()).header(RANGE, range).send().await.ok();
-    if resp_part.is_none(){
-        tracing::warn!("download_part: {:?}  {:?} start_pos {}", start.elapsed(), part_path, start_pos);
-        return Err("download_part response err".into());
+    let resp_part = client_down.get(presign_url.clone()).header(RANGE, range).send().await;
+
+    if  resp_part.is_err(){
+        let err = resp_part.unwrap_err();
+        tracing::warn!("download_part: {:?}  {:?} start_pos {}, error: {}", start.elapsed(), part_path, start_pos, err);
+        return Err(format!("download_part, response err: {}", err).into());
     }
+
+    let status_code = resp_part.as_ref().unwrap().status();
+    tracing::info!("download_part: {:?}  {:?} index: {}, status: {}", start.elapsed(), part_path, idx_part, status_code);
+    if status_code == 403 {
+        tracing::warn!("download_err: {:?}  {:?}", start.elapsed(), presign_url.clone());
+        return Err(format!("download_part, response err: {}", 403).into());
+    }
+
     let resp_bytes = resp_part.unwrap().bytes().await.ok();
     if resp_bytes.is_none(){
-        tracing::warn!("download_part: {:?}  {:?} start_pos {}", start.elapsed(), part_path, start_pos);
+        tracing::warn!("download_part: {:?}  {:?} idx_part {}", start.elapsed(), part_path, idx_part);
         return Err("download_part bytes err".into());
     }
 
@@ -237,7 +246,9 @@ pub async  fn download_merge (
     let _ = tokio::fs::remove_file(file_path.clone()).await.unwrap_or( ());
 
     if let Some(parent) = std::path::Path::new(&file_path).parent() {
-        fs::create_dir_all(parent).await?;
+        if !parent.exists() {
+            fs::create_dir_all(parent).await?;
+        }
     }
     let mut dest_file = fs::OpenOptions::new()
         .create(true)

@@ -4,9 +4,9 @@ use httpdrs::prelude::*;
 
 
 #[pyfunction]
-fn run_flagdataset() -> PyResult<()> {
+fn multi_download(use_loc: String, presign_api: String, max_bandwidth: u64) -> PyResult<()> {
     logger::try_logger_init();
-    runtime::start_multi_thread().expect("start multi thread runtime err");
+    runtime::start_multi_thread(max_bandwidth, use_loc, presign_api).expect("start multi thread runtime err");
     Ok(())
 }
 
@@ -14,6 +14,6 @@ fn run_flagdataset() -> PyResult<()> {
 /// A Python module implemented in Rust.
 #[pymodule]
 fn baai_flagdataset_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(run_flagdataset, m)?)?;
+    m.add_function(wrap_pyfunction!(multi_download, m)?)?;
     Ok(())
 }

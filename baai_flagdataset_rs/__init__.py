@@ -1,4 +1,4 @@
-from .baai_flagdataset_rs import run_flagdataset
+from .baai_flagdataset_rs import multi_download
 
 
-__all__ = ["run_flagdataset"]
+__all__ = ["multi_download"]

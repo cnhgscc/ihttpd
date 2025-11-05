@@ -27,14 +27,13 @@ def init_with_cmdargs(cmd_args):
 
     try:
         from ..baai_helper import baai_print
-        from ..baai_flagdataset_rs import run_flagdataset
+        from ..baai_flagdataset_rs import multi_download
 
 
         baai_print.print_figlet()
 
-        run_flagdataset()
+        multi_download("/Users/hgshicc/test/flagdataset/AIM-500", "http://127.0.0.1:30000/v1/storage/download/presign", 10)
 
-        print("flagdataset 初始化完成")
     except Exception as e:
         print(e)
 
