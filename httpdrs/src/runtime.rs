@@ -1,3 +1,4 @@
+use std::thread::sleep;
 use std::sync::{Arc};
 use std::time::Duration;
 
@@ -59,6 +60,7 @@ pub fn start_multi_thread(max_bandwidth: u64, use_loc: String, presign_api: Stri
     let _ = rt.block_on(join_all(event_tasks));
     rt.shutdown_background();
 
+    sleep(Duration::from_secs(2));
     rt_token.cancel();
     tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
     let (
@@ -67,8 +69,7 @@ pub fn start_multi_thread(max_bandwidth: u64, use_loc: String, presign_api: Stri
         let r = RUNTIME.lock().unwrap();
         (r.require_bytes, r.require_count, r.download_speed)
     };
-
-    pb.set_message(pbar::format(runtime_require_bytes, runtime_require_count, runtime_download_speed));
+    pb.set_message(pbar::format(runtime_require_bytes, runtime_require_count, runtime_download_speed, 1.0));
     pb.finish();
 
     Ok(())

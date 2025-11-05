@@ -17,6 +17,7 @@ pub fn format(
     require_bytes: u64,
     require_count: u64,
     download_speed: u64,
+    download_precent: f64,
 )-> String{
 
     let require_bytes_human = HumanBytes(require_bytes);
@@ -24,5 +25,5 @@ pub fn format(
 
     let download_speed_human = HumanBytes(download_speed);
 
-    format!("| {}/s | required({}/{})", download_speed_human, require_count_human,  require_bytes_human)
+    format!("|  {:.2}%   | {}/s | required({}/{})",download_precent*100.0, download_speed_human, require_count_human, require_bytes_human)
 }
