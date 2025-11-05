@@ -24,5 +24,5 @@ pub fn format(
 
     let download_speed_human = HumanBytes(download_speed);
 
-    format!("| {}/s | download({}/{})", download_speed_human, require_count_human,  require_bytes_human)
+    format!("| {}/s | required({}/{})", download_speed_human, require_count_human,  require_bytes_human)
 }

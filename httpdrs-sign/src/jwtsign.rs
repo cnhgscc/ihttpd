@@ -76,7 +76,8 @@ pub fn check_file_meta(file_path: PathBuf) -> Option<u64> {
             .ok()
             .map(|meta| meta.len())
     } else {
-        None
+        tracing::debug!("{} is not a file", file_path.display());
+        Some(0)
     }
 }
 

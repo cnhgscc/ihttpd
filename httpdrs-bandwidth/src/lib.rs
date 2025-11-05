@@ -41,7 +41,7 @@ impl Bandwidth {
             tracing::warn!("bandwidth, used_bytes: {}", used_bytes);
             self.notify.notify_waiters();
         }
-        used_bytes / elapsed_ms
+        used_bytes * 1000 / elapsed_ms
     }
 
     pub async fn permit(&self, desired_bytes: u64) -> Result<u64, Box<dyn std::error::Error>>{
