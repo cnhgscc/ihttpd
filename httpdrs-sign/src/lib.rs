@@ -6,17 +6,19 @@ pub mod jwtsign;
 
 pub struct SignatureClient{
     client: reqwest::Client,
+    network: String,
     reader_presign: String,
 }
 
 
 impl SignatureClient {
 
-    pub fn new(reader_presign: String) -> Self {
+    pub fn new(reader_presign: String, network: String) -> Self {
         let client = reqwest::Client::new();
         let reader_presign = reader_presign ;
         SignatureClient {
             client,
+            network,
             reader_presign: reader_presign.to_string(),
         }
     }
@@ -30,7 +32,7 @@ impl SignatureClient {
 
     pub async fn reader_get(&self, sign_data: String) -> Result<ReaderResponse, Box<dyn std::error::Error>> {
 
-        let req = ReaderRequest::new("public", sign_data);
+        let req = ReaderRequest::new(self.network.as_str(), sign_data);
         let reader_presign = self.reader_presign.as_str();
         tracing::debug!("reader_presign: {}, req: {}", reader_presign, req);
 
@@ -90,7 +92,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ping() {
-        let signature = SignatureClient::new("http://127.0.0.1:30000/v1/storage/download/presign".to_string());
+        let signature = SignatureClient::new("http://127.0.0.1:30000/v1/storage/download/presign".to_string(), "public".to_string());
         let result = signature.ping_get().await.unwrap();
         println!("{}", result)
     }

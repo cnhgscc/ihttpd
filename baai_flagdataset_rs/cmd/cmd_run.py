@@ -32,7 +32,11 @@ def init_with_cmdargs(cmd_args):
 
         baai_print.print_figlet()
 
-        multi_download("/Users/hgshicc/test/flagdataset/AIM-500", "http://127.0.0.1:30000/v1/storage/download/presign", 10)
+        multi_download(
+            "/Users/hgshicc/test/flagdataset/AIM-500",
+            "http://127.0.0.1:30000/v1/storage/download/presign", "public",
+            10
+        )
 
     except Exception as e:
         print(e)

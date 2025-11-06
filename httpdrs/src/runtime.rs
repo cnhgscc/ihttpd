@@ -12,7 +12,12 @@ use crate::{bandwidth, downloader, reader, watch};
 use crate::stats::RUNTIME;
 
 
-pub fn start_multi_thread(max_bandwidth: u64, use_loc: String, presign_api: String) -> Result<(), Box<dyn std::error::Error>>{
+pub fn start_multi_thread(
+    max_bandwidth: u64,
+    use_loc: String,
+    presign_api: String,
+    network: String
+) -> Result<(), Box<dyn std::error::Error>>{
 
     let rt = runtime::Builder::new_multi_thread()
         .worker_threads(100)
@@ -35,7 +40,7 @@ pub fn start_multi_thread(max_bandwidth: u64, use_loc: String, presign_api: Stri
         .build()
         .expect("Failed to build reqwest client"));
 
-    let client_sign = Arc::new(SignatureClient::new(presign_api));
+    let client_sign = Arc::new(SignatureClient::new(presign_api, network));
 
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 

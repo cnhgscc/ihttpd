@@ -4,9 +4,9 @@ use httpdrs::prelude::*;
 
 
 #[pyfunction]
-fn multi_download(use_loc: String, presign_api: String, max_bandwidth: u64) -> PyResult<()> {
+fn multi_download(use_loc: String, presign_api: String, network: String, max_bandwidth: u64) -> PyResult<()> {
     logger::try_logger_init();
-    runtime::start_multi_thread(max_bandwidth, use_loc, presign_api).expect("start multi thread runtime err");
+    runtime::start_multi_thread(max_bandwidth, use_loc, presign_api, network).expect("start multi thread runtime err");
     Ok(())
 }
 
