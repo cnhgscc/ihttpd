@@ -285,6 +285,11 @@ pub async fn download_part (
         }
     };
 
+    if let Some(parent) = std::path::Path::new(&part_path).parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).await?;
+        }
+    }
     let mut file = match fs::File::create(part_path.clone()).await {
         Ok(file) => file,
         Err(err) => {
@@ -336,10 +341,10 @@ pub async  fn download_merge (
 
     for idx_part in 0..chunk_nums {
         let part_path = reader.local_part_path(data_path, idx_part, temp_path);
-        let mut part_file = match fs::File::open(part_path).await{
+        let mut part_file = match fs::File::open(part_path.clone()).await{
             Ok(part_file) => part_file,
             Err(err) => {
-                return Err(format!("download_merge, open part file err: {}", err).into());
+                return Err(format!("download_merge, when open part file, encountered an err: {}，part: {:?}", err, part_path.clone()).into());
             }
         };
         tokio::io::copy(&mut part_file, &mut dest_file).await?;
