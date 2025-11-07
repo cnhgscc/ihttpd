@@ -34,7 +34,9 @@ def init_with_cmdargs(cmd_args):
 
         multi_download(
             "/Users/hgshicc/test/flagdataset/AIM-500",
-            "http://127.0.0.1:30000/v1/storage/download/presign", "public",
+            # "http://127.0.0.1:30000/v1/storage/download/presign",
+            "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign",
+            "public",
             10
         )
 
