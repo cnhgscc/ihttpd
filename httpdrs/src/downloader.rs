@@ -331,11 +331,11 @@ pub async  fn download_merge (
     let mut dest_file = match fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(file_path)
+        .open(file_path.clone())
         .await{
         Ok(dest_file) => dest_file,
         Err(err) => {
-            return Err(format!("download_merge, open file err: {}", err).into());
+            return Err(format!("download_merge, when open dest file, encountered en err: {}, file: {:?}", err, file_path.clone()).into());
         }
     };
 
