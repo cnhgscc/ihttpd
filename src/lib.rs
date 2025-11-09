@@ -2,7 +2,6 @@ use pyo3::prelude::*;
 
 use httpdrs::prelude::*;
 
-
 #[pyfunction]
 fn multi_download(use_loc: String, presign_api: String, network: String, max_bandwidth: u64) -> PyResult<()> {
     logger::try_logger_init(format!("{}/log", use_loc).as_str());

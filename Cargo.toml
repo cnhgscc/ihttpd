@@ -13,15 +13,14 @@ pyo3 = "0.27.1"
 
 # mod rs
 httpdrs = { version = "0.1.0",  path = "httpdrs" }
-httpdrs-core = { version = "0.1.0",  path = "httpdrs-core" }
-
 
 [workspace]
 members = [
     "httpdrs",
     "httpdrs-bandwidth",
     "httpdrs-core",
-    "httpdrs-logger", "httpdrs-pbar",
+    "httpdrs-logger",
+    "httpdrs-pbar",
     "httpdrs-sign",
 ]
 

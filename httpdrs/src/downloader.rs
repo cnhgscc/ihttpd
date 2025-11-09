@@ -198,8 +198,14 @@ async fn download(
 
 async fn presign(sign: String, with_client: Arc<SignatureClient>) -> Result<String, Box<dyn std::error::Error>>{
     let start = Instant::now();
-    // let chttp = httpd::SignatureClient::new("http://127.0.0.1:30000/v1/storage/download/presign".to_string());
-    let reader = with_client.reader_get(sign).await.unwrap();
+    let reader = match  with_client.reader_get(sign).await{
+        Ok(reader) => {
+            reader
+        },
+        Err(err) => {
+            return Err(format!("download_err, reader_presign err: {}", err).into());
+        }
+    };
     if reader.code != 0 {
         return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "status_code != 200")))
     }

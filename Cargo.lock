@@ -37,7 +37,6 @@ name = "baai-flagdataset-rs"
 version = "0.1.0"
 dependencies = [
  "httpdrs",
- "httpdrs-core",
  "pyo3",
 ]
 
