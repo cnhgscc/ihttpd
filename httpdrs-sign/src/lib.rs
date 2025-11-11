@@ -46,8 +46,8 @@ impl SignatureClient {
                         Err(e) => {
                             retry_count += 1;
                             if retry_count >= max_retries {
-                                tracing::error!("reader_presign: {}, json parse error: {}", reader_presign, e);
-                                return Err("reader_presign: json parse error".into())
+                                tracing::error!("reader_presign: {}, max_retries: {}", reader_presign, e);
+                                return Err("reader_presign: max_retries".into())
                             }
                             tokio::time::sleep(tokio::time::Duration::from_millis(1000 * retry_count)).await;
                             continue;
@@ -61,7 +61,7 @@ impl SignatureClient {
                         _ => {
                             retry_count += 1;
                             if retry_count >= max_retries {
-                                tracing::error!("reader_presign: {}, retrying...", reader_presign);
+                                tracing::error!("reader_presign: {}, retrying... {}", reader_presign, retry_count);
                                 return Err("reader_presign: status_code err".into());
                             }
                             tokio::time::sleep(tokio::time::Duration::from_millis(1000 * retry_count)).await;

@@ -24,6 +24,7 @@ def with_cmdargs():
 
 
 def init_with_cmdargs(cmd_args):
+    import pathlib
 
     try:
         from ..baai_helper import baai_print
@@ -32,8 +33,12 @@ def init_with_cmdargs(cmd_args):
 
         baai_print.print_figlet()
 
+
+        env_path = pathlib.Path(".").absolute().__str__()
+        print(env_path)
+
         multi_download(
-            "/Users/hgshicc/test/flagdataset/AIM-500",
+            env_path,
             # "http://127.0.0.1:30000/v1/storage/download/presign",
             "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign",
             "public",
