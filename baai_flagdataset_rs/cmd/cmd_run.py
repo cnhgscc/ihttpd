@@ -34,16 +34,12 @@ def init_with_cmdargs(cmd_args):
         baai_print.print_figlet()
 
 
-        env_path = pathlib.Path(".").absolute().__str__()
-        print(env_path)
+        use_path = pathlib.Path(".").absolute().__str__()
+        presign = "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign"
+        network = "private"
 
-        multi_download(
-            env_path,
-            # "http://127.0.0.1:30000/v1/storage/download/presign",
-            "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign",
-            "public",
-            10
-        )
+        print("开始下载数据集...")
+        multi_download(use_path, presign, network,100)
 
     except Exception as e:
         print(e)
