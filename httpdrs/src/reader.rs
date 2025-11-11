@@ -64,7 +64,7 @@ pub(crate) async fn checkpoint() {
                 let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
                 if let Some(reader_size) = httpd_reader.check_local_file(RUNTIME.lock().unwrap().data_path.as_str()) {
                     if reader_size != size {
-                        tracing::warn!("read_checkpoint: {} size not match, local_size: {}, meta_size: {}", httpd_reader, reader_size, size);
+                        tracing::debug!("read_checkpoint: {} size not match, local_size: {}, meta_size: {}", httpd_reader, reader_size, size);
                         continue
                     }
                     download_bytes += size;
@@ -83,5 +83,5 @@ pub(crate) async fn checkpoint() {
         rt.completed_bytes += bytes;
         rt.completed_count += size;
     }
-    tracing::info!("checkpoint: use {:?}", start.elapsed());
+    tracing::debug!("checkpoint: use {:?}", start.elapsed());
 }
