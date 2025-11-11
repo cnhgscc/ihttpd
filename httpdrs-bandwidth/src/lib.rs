@@ -29,8 +29,9 @@ impl Bandwidth {
             max_bs,
             period_used: AtomicU64::new(0),
             notify: Notify::new(),
-            semaphore: Semaphore::new(50),
+            semaphore: Semaphore::new(2000),
         };
+        tracing::info!("Bandwidth init: {}", max_bs);
         Arc::new(bw)
     }
 
