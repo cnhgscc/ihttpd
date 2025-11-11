@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tokio::fs;
-use tokio::sync::{mpsc};
+use tokio::sync::{mpsc, Semaphore};
 use tokio::time::Instant;
 use tokio::io::AsyncWriteExt;
 use reqwest::Client;
@@ -15,18 +15,17 @@ use crate::stats::RUNTIME;
 pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, client_sign: Arc<SignatureClient>) {
 
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
+    let data_path = RUNTIME.lock().unwrap().data_path.clone();
     let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
 
     // 检查未下载并发控制
-    let (tx, mut rx) = mpsc::channel::<(String, String, u64)>(10000);
+    let (tx, mut rx) = mpsc::channel::<(String, String, u64)>(10);
     for csv_path in csv_paths {
         let tx_sender = tx.clone();
-        let data_path = {
-            RUNTIME.lock().unwrap().data_path.clone() // 提前获取并释放锁
-        };
+        let data_path = data_path.clone();
         tokio::spawn(async move {
-            let meta_path =  csv_path.unwrap().path().to_string_lossy().to_string();
-            let mut csv_reader = Reader::from_path(meta_path.as_str()).unwrap();
+            let csv_meta_path =  csv_path.unwrap().path().to_string_lossy().to_string();
+            let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
 
             for raw_result in csv_reader.records(){
                 let raw_line = raw_result.unwrap();
@@ -37,30 +36,30 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
                     if reader_size == size {
                         continue
                     }
-                    tx_sender.send((meta_path.clone(), sign, size)).await.unwrap();
+                    tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
                 }else {
-                    tx_sender.send((meta_path.clone(), sign, size)).await.unwrap();
+                    tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
                 }
             }
         });
     }
     drop(tx);
 
-    // 文件下载并发控制
-    let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(1000);
+    let semaphore = Arc::new(Semaphore::new(500)); // 文件下载并发控制
+    let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(100);
+    let chunk_size = 1024 * 1024 * 5;
     while let Some((_meta_path, sign, size)) = rx.recv().await {
-        // 执行下载逻辑
-        let chunk_size = 1024 * 1024 * 5;
         let bandwidth_ = Arc::clone(&bandwidth);
-        let client_down = Arc::clone(&client_down);
-        let client_sign = Arc::clone(&client_sign);
-        // 并发下载-这里的数量是下载文件的个数
+        let client_down_ = Arc::clone(&client_down);
+        let client_sign_ = Arc::clone(&client_sign);
         let tx_down_ = tx_down.clone();
+        let semaphore_ = Arc::clone(&semaphore);
         tokio::spawn(async move {
+            let _permit = semaphore_.acquire().await.unwrap();
             let (download_name, download_duration) = match download(
                 bandwidth_,
-                client_down,
-                client_sign,
+                client_down_,
+                client_sign_,
                 sign,
                 size,
                 chunk_size
@@ -86,9 +85,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
     drop(tx_down);
     while let Some((name, use_ms)) = rx_down.recv().await {
         tracing::info!("download_complete, use: {:?}, file: {:?}", use_ms, name);
-    }
-
-    // 下载任务处理完成
+    } // 下载任务处理完成
 }
 
 
