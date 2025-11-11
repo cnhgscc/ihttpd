@@ -118,7 +118,7 @@ async fn download(
         if local_size == require_size {
             return Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()));
         }else {
-            tracing::info!("download, start: {}, local: {}, require: {}", reader_ref, local_size, require_size);
+            tracing::debug!("download, start: {}, local: {}, require: {}", reader_ref, local_size, require_size);
         }
     }
 
@@ -129,7 +129,7 @@ async fn download(
     let (tx_part, mut rx_part) = mpsc::channel::<(u64, u128, i32)>(100);
     let reader_merge = Arc::clone(&reader_ref);
 
-    tracing::info!("download, parts: {}, {}", total_parts, reader_ref);
+    tracing::debug!("download, parts: {}, {}", total_parts, reader_ref);
 
     for idx_part in 0..total_parts {
         let part_start = idx_part * chunk_size;
@@ -235,12 +235,14 @@ pub async fn download_part (
             presign_url
         },
         Err(err) => {
+            tracing::error!("download_err, presign err: {}", err);
             return Err(format!("download_err, presign err: {}", err).into());
         }
     };
 
     let presign_url = match presign_url.as_str() {
         "" => {
+            tracing::error!("download_err, presign_url is empty");
             return Err("download_err, presign_url is empty".into());
         },
         _ => {
@@ -250,7 +252,7 @@ pub async fn download_part (
 
     let part_path = reader_ref.local_part_path(data_path, idx_part, temp_path);
     let range = format!("bytes={}-{}", start_pos, end_pos);
-    tracing::info!("download_part, presign: {}", presign_url);
+    tracing::info!("download_part, presign: {}, use: {:?}", presign_url, start.elapsed());
 
 
     let max_retries = 20;
@@ -312,7 +314,14 @@ pub async fn download_part (
         }
     };
 
-    tracing::info!("download_part: completed: ({}), start_pos {}, end_pos: {},  {:?} {:?}", resp_len, start_pos, end_pos, start.elapsed() , part_path);
+    // TODO: 计算分块的平均速度
+    tracing::info!(
+        "download_part: completed: ({}), start_pos {}, end_pos: {}, use: {:?}, path: {:?}",
+        resp_len,
+        start_pos,
+        end_pos,
+        start.elapsed(),
+        part_path);
     Ok(resp_len as u128)
 }
 
