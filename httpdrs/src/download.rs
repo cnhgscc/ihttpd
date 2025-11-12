@@ -88,10 +88,9 @@ pub async fn download_file(
         let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
         tokio::spawn(async move {
             let _permit = jobs_.acquire().await.unwrap(); // 下载器并发控制
-
             {
                 let jobs_count = jobs_.available_permits();
-                tracing::debug!("download_jobs: {}", jobs_count);
+                tracing::info!("download_jobs: available {}", jobs_count);
             }
 
             let (download_len, download_signal) = match download_part(
