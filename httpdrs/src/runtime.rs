@@ -72,5 +72,6 @@ pub fn start_multi_thread(
 
     rt_token.cancel();
     tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
+
     Ok(())
 }

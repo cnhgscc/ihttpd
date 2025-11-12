@@ -64,18 +64,20 @@ pub(crate) async fn init(pb:ProgressBar, token_bandwidth: CancellationToken){
                 pb.set_message(pbar::format(require_bytes, require_count, period_speed, download_percent));
             }
             _ = token_bandwidth.cancelled() => {
-                let (
-                    runtime_require_bytes, runtime_require_count, runtime_download_speed
-                ) = {
-                    let r = RUNTIME.lock().unwrap();
-                    (r.require_bytes, r.require_count, r.download_speed)
-                };
-
-                pb.set_message(pbar::format(runtime_require_bytes, runtime_require_count, runtime_download_speed, 1.0));
-                pb.finish();
                 break;
             }
         }
     }
+
+
+    let (
+        runtime_require_bytes, runtime_require_count, runtime_download_speed
+    ) = {
+        let r = RUNTIME.lock().unwrap();
+        (r.require_bytes, r.require_count, r.download_speed)
+    };
+
+    pb.set_message(pbar::format(runtime_require_bytes, runtime_require_count, runtime_download_speed, 1.0));
+    pb.finish();
 
 }
