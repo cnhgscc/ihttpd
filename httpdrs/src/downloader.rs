@@ -1,12 +1,13 @@
 use std::sync::Arc;
+
 use tokio::fs;
 use tokio::sync::{mpsc, Semaphore};
 use tokio::time::Instant;
 use tokio::io::AsyncWriteExt;
 use reqwest::Client;
 use reqwest::header::{RANGE};
-
 use csv::Reader;
+
 use httpdrs_core::{httpd};
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use httpdrs_core::httpd::Bandwidth;
