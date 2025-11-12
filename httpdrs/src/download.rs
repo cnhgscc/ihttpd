@@ -71,7 +71,7 @@ pub async fn download_part(
                             resp_part.status(),
                             presign_url
                         )
-                            .into());
+                        .into());
                     }
                     tokio::time::sleep(tokio::time::Duration::from_millis(100 * retry_count)).await;
                 }
@@ -83,7 +83,7 @@ pub async fn download_part(
                         "download_err, reqwest_retry: {}  err: {}",
                         retry_count, err
                     )
-                        .into());
+                    .into());
                 }
                 tokio::time::sleep(tokio::time::Duration::from_millis(2000 * retry_count)).await;
             }
