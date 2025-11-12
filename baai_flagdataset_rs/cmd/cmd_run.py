@@ -10,6 +10,7 @@ def with_cmdargs():
     init_parser = subparsers.add_parser('init', help='init', parents=[root_parser])
     init_parser.add_argument('--network', type=str, default="private", help='network')
     init_parser.add_argument('--bandwidth', type=int, default="100", help='bandwidth')
+    init_parser.add_argument('--parallel', type=int, default="200", help='parallel')
     init_parser.set_defaults(func=init_with_cmdargs)
 
     cmd_args = parser.parse_args()
@@ -39,13 +40,15 @@ def init_with_cmdargs(cmd_args):
         presign = "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign"
         network = cmd_args.network
         bandwidth = cmd_args.bandwidth
+        parallel = cmd_args.parallel
 
         print(f"baai-flagdataset: use_path, {use_path}")
         print(f"baai-flagdataset: presign, {presign}")
         print(f"baai-flagdataset: network, {network}")
         print(f"baai-flagdataset: bandwidth, {bandwidth}")
+        print(f"baai-flagdataset: parallel, {parallel}")
 
-        multi_download(use_path, presign, network,bandwidth)
+        multi_download(use_path, presign, network,bandwidth,  parallel)
 
     except Exception as e:
         print(e)

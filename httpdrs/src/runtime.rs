@@ -15,6 +15,7 @@ use crate::stats::RUNTIME;
 
 pub fn start_multi_thread(
     max_bandwidth: u64,
+    max_parallel: usize,
     use_loc: String,
     presign_api: String,
     network: String
@@ -44,7 +45,7 @@ pub fn start_multi_thread(
     let client_sign = Arc::new(SignatureClient::new(presign_api, network));
 
     let httpd_bandwidth =  httpd::Bandwidth::new(1024*1024*(max_bandwidth+1)); // 网络带宽控制
-    let httpd_jobs = Arc::new(Semaphore::new(100)); // 下载器并发控制
+    let httpd_jobs = Arc::new(Semaphore::new(max_parallel)); // 下载器并发控制
 
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 
