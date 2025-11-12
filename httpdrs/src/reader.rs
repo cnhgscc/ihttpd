@@ -10,7 +10,17 @@ pub(crate) async fn init() {
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
     let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
 
-    let (tx, mut rx) = mpsc::channel::<(String, u64, u64)>(100);
+    let (tx, mut rx) = mpsc::channel::<(String, u64, u64)>(1);
+
+    let stop = tokio::spawn(async move {
+        while let Some((_csv, bytes, size)) = rx.recv().await {
+            // 执行下载逻辑
+            let mut rt = RUNTIME.lock().unwrap();
+            rt.require_bytes += bytes;
+            rt.require_count += size;
+        }
+    });
+
     for csv_path in csv_paths {
         let tx_sender = tx.clone();
         tokio::spawn(async move {
@@ -20,7 +30,7 @@ pub(crate) async fn init() {
             let mut require_bytes = 0;
             let mut require_count = 0;
             for raw_result in csv_reader.records() {
-                tracing::debug!("init reading: {}, {:?}", meta_path, raw_result);
+                tracing::info!("init reading: {}, {:?}", meta_path, raw_result);
                 let raw_line = raw_result.unwrap();
                 let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
                 require_count += 1;
@@ -41,12 +51,7 @@ pub(crate) async fn init() {
     }
     drop(tx);
 
-    while let Some((_csv, bytes, size)) = rx.recv().await {
-        // 执行下载逻辑
-        let mut rt = RUNTIME.lock().unwrap();
-        rt.require_bytes += bytes;
-        rt.require_count += size;
-    }
+    stop.await.unwrap();
     tracing::info!("reading: use {:?}", start.elapsed());
 }
 
@@ -57,6 +62,16 @@ pub(crate) async fn checkpoint() {
     let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
 
     let (tx, mut rx) = mpsc::channel::<(String, u64, u64)>(100);
+
+    let stop = tokio::spawn(async move {
+        while let Some((_csv, bytes, size)) = rx.recv().await {
+            // 执行下载逻辑
+            let mut rt = RUNTIME.lock().unwrap();
+            rt.completed_bytes += bytes;
+            rt.completed_count += size;
+        }
+    });
+
     for csv_path in csv_paths {
         let tx_sender = tx.clone();
         tokio::spawn(async move {
@@ -102,11 +117,6 @@ pub(crate) async fn checkpoint() {
     }
     drop(tx);
 
-    while let Some((_csv, bytes, size)) = rx.recv().await {
-        // 执行下载逻辑
-        let mut rt = RUNTIME.lock().unwrap();
-        rt.completed_bytes += bytes;
-        rt.completed_count += size;
-    }
+    stop.await.unwrap();
     tracing::debug!("checkpoint: use {:?}", start.elapsed());
 }
