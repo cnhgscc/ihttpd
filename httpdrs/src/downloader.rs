@@ -56,7 +56,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client
     let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(2000);
     tokio::spawn(async move {
     // 文件下载并发控制200, 主要受限于存储的QPS
-    let semaphore = Arc::new(Semaphore::new(100));
+    let semaphore = Arc::new(Semaphore::new(2000));
     let chunk_size = 1024 * 1024 * 5;
     while let Some((_meta_path, sign, size)) = rx_read.recv().await {
         let bandwidth_ = Arc::clone(&bandwidth);
