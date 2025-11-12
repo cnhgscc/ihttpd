@@ -83,7 +83,6 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
                    tx_down_.send((download_name, download_duration)).await.unwrap();
                }
                None => {
-                   tx_down_.send((download_name, tokio::time::Duration::from_secs(0))).await.unwrap();
                }
            }
 
