@@ -8,10 +8,12 @@ mod bandwidth;
 mod downloader;
 mod merge;
 pub mod prelude;
+mod presgin;
 mod reader;
 pub mod runtime;
 mod stats;
 mod watch;
+mod download;
 
 pub mod logger {
     pub use httpdrs_logger::*;
