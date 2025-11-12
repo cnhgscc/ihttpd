@@ -162,7 +162,8 @@ async fn download_file(
         let client_down_span = Arc::clone(&client_down);
         let client_sign_span = Arc::clone(&client_sign);
 
-        let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
+        // TODO: remove permit
+        // let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
         tokio::spawn(async move {
             let _permit = jobs_.acquire().await.unwrap(); // 下载器并发控制
             let (download_len, download_signal)=  match download_part(
