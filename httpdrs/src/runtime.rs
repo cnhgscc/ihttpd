@@ -53,7 +53,7 @@ pub fn start_multi_thread(
     let pb = pbar::create();
 
 
-    rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
+    // rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
     rt.spawn(watch::init(pb.clone(), rt_token.clone()));
 
     let spawn_read = rt.spawn(reader::init());
