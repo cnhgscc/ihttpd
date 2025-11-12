@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use csv::Reader;
-use reqwest::Client;
-use tokio::sync::{Semaphore, mpsc};
-
 use httpdrs_core::httpd;
 use httpdrs_core::httpd::Bandwidth;
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
+use reqwest::Client;
+use tokio::sync::{Semaphore, mpsc};
+use tokio_util::sync::CancellationToken;
 
 use crate::download::download_file;
 use crate::stats::RUNTIME;
@@ -18,6 +18,7 @@ pub(crate) async fn down(
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
     tx_merge: Arc<mpsc::Sender<(Arc<HttpdMetaReader>, u64, String, String)>>,
+    cancel: CancellationToken,
 ) {
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
     let data_path = RUNTIME.lock().unwrap().data_path.clone();
@@ -26,22 +27,25 @@ pub(crate) async fn down(
     // 获取未下载的文件
     // meta 文件并发读取量为 10
     let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(10);
-    let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(10000);
 
-    tokio::spawn(async move {
+    let stop = tokio::spawn(async move {
         // 文件下载并发控制10000, 主要受限于存储的QPS
         let semaphore = Arc::new(Semaphore::new(10000));
         let chunk_size = 1024 * 1024 * 5;
         while let Some((_meta_path, sign, size)) = rx_read.recv().await {
+            if cancel.is_cancelled() {
+                // TODO: 停止下载文件
+                break;
+            }
+
             let bandwidth_ = Arc::clone(&bandwidth);
             let jobs_ = Arc::clone(&jobs);
             let client_down_ = Arc::clone(&client_down);
             let client_sign_ = Arc::clone(&client_sign);
             let tx_merge_ = Arc::clone(&tx_merge);
-            let tx_down_ = tx_down.clone();
             let semaphore_ = Arc::clone(&semaphore);
 
-            // 开启一个任务下载文件
+            // 开启一个异步任务下载文件
             tokio::spawn(async move {
                 let _permit = semaphore_.acquire().await.unwrap(); // 最大并发下载文件数量
                 let (download_name, download_duration) = match download_file(
@@ -64,16 +68,16 @@ pub(crate) async fn down(
 
                 match download_duration {
                     Some(download_duration) => {
-                        tx_down_
-                            .send((download_name, download_duration))
-                            .await
-                            .unwrap();
+                        tracing::info!(
+                            "{} downloaded in {} seconds",
+                            download_name,
+                            download_duration.as_secs()
+                        );
                     }
                     None => {}
                 }
             });
         }
-        drop(tx_down);
     });
 
     tokio::spawn(async move {
@@ -114,9 +118,6 @@ pub(crate) async fn down(
         drop(tx_read);
     });
 
-    while let Some((name, use_ms)) = rx_down.recv().await {
-        tracing::debug!("download_complete, use: {:?}, file: {:?}", use_ms, name);
-    } // 下载任务处理完成
-
-    // TODO: 释放 tx_merge
+    // 等到处理完成
+    stop.await.unwrap();
 }

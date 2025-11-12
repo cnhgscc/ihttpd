@@ -66,6 +66,7 @@ pub fn start_multi_thread(
         Arc::clone(&client_down),
         Arc::clone(&client_sign),
         Arc::new(tx_merge),
+        rt_token.clone(),
     ));
     let spawn_merge = rt.spawn(merge::init(rx_merge, rt_token.clone()));
 
@@ -100,18 +101,8 @@ pub fn start_multi_thread(
 
         let event_tasks = vec![spawn_read, spawn_down, spawn_merge];
         tokio::select! {
-            _ = join_all(event_tasks) => {}
-            _ = signal_future => {
-                rt_token.cancel();
-                tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
-            }
-        }
-    });
-
-    rt.shutdown_background();
-
-    tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
-    let (runtime_require_bytes, runtime_require_count, runtime_download_speed) = {
+            _ = join_all(event_tasks) => {
+                    let (runtime_require_bytes, runtime_require_count, runtime_download_speed) = {
         let r = RUNTIME.lock().unwrap();
         (r.require_bytes, r.require_count, r.download_speed)
     };
@@ -122,6 +113,15 @@ pub fn start_multi_thread(
         1.0,
     ));
     pb.finish();
+            }
+            _ = signal_future => {
+                rt_token.cancel();
+                tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
+            }
+        }
+    });
+
+    rt.shutdown_background();
 
     Ok(())
 }
