@@ -17,6 +17,8 @@ pub struct RuntimeContext {
 
     pub download_bytes: u64,
     pub download_count: u64,
+
+    pub parallel_sumit: usize,
 }
 
 pub(crate) static RUNTIME: LazyLock<Arc<Mutex<RuntimeContext>>> =

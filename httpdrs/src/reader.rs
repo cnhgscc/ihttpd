@@ -1,7 +1,7 @@
 use crate::stats::RUNTIME;
 use csv::Reader;
 use tokio::sync::mpsc;
-use tokio::time::{Instant};
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 pub(crate) async fn init(cancel: CancellationToken) {

@@ -48,6 +48,13 @@ pub(crate) async fn down(
             // 开启一个异步任务下载文件
             tokio::spawn(async move {
                 let _permit = semaphore_.acquire().await.unwrap(); // 最大并发下载文件数量
+                {
+                    let _count = semaphore_.available_permits();
+                    let mut rt = RUNTIME.lock().unwrap();
+                    rt.parallel_sumit = _count;
+                    tracing::info!("download_sumit: {}", rt.parallel_sumit);
+                }
+
                 let (download_name, download_duration) = match download_file(
                     bandwidth_,
                     jobs_,
