@@ -1,0 +1,4 @@
+2025-11-12T04:29:45.386011Z  INFO ThreadId(01) httpdrs_logger: httpdrs-logger/src/lib.rs:16: Logger initialized: baai-flagdatset-rs
+2025-11-12T04:29:45.395826Z  INFO ThreadId(01) httpdrs::runtime: httpdrs/src/runtime.rs:45: Runtime initialized: baai-flagdataset-rs
+2025-11-12T04:29:45.396035Z  INFO ThreadId(01) httpdrs_bandwidth: httpdrs-bandwidth/src/lib.rs:34: Bandwidth init: 15728640
+2025-11-12T04:29:47.403030Z  INFO ThreadId(01) httpdrs::runtime: httpdrs/src/runtime.rs:70: Runtime shutdown: baai-flagdataset-rs: LazyLock(Mutex { data: RuntimeContext { meta_path: "/Users/hgshicc/develop/rust-develop/baai-flagdataset-rs/meta", data_path: "/Users/hgshicc/develop/rust-develop/baai-flagdataset-rs/data", temp_path: "/Users/hgshicc/develop/rust-develop/baai-flagdataset-rs/temp", require_count: 0, require_bytes: 0, download_speed: 0, completed_count: 0, completed_bytes: 0, download_bytes: 0, download_count: 0 }, poisoned: false, .. })

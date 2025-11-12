@@ -36,7 +36,7 @@ def init_with_cmdargs(cmd_args):
 
         use_path = pathlib.Path(".").absolute().__str__()
         presign = "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign"
-        network = "private"
+        network = "public"
 
         print("baai-flagdataset: 正在初始化...")
         print(f"baai-flagdataset: use_path, {use_path}")

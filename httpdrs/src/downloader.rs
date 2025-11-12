@@ -7,7 +7,7 @@ use tokio::io::AsyncWriteExt;
 use reqwest::Client;
 use reqwest::header::{RANGE};
 use csv::Reader;
-
+use indicatif::HumanBytes;
 use httpdrs_core::{httpd};
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use httpdrs_core::httpd::Bandwidth;
@@ -92,7 +92,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
     });
 
     while let Some((name, use_ms)) = rx_down.recv().await {
-        tracing::info!("download_complete, use: {:?}, file: {:?}", use_ms, name);
+        tracing::debug!("download_complete, use: {:?}, file: {:?}", use_ms, name);
     } // 下载任务处理完成
 }
 
@@ -183,14 +183,14 @@ async fn download(
     while let Some((idx_part,  download_len, download_signal)) = rx_part.recv().await {
         completed_parts += 1;
         RUNTIME.lock().unwrap().download_bytes += download_len as u64;
-        tracing::info!("download_part, complete {}, use: {}  part: {:?}, {}", reader_merge, download_len, idx_part, download_signal);
+        tracing::debug!("download_part, complete {}, use: {}  part: {:?}, {}", reader_merge, download_len, idx_part, download_signal);
     }
 
     // 下载完毕触发合并
     if completed_parts == total_parts {
         match download_merge(Arc::clone(&reader_merge), total_parts, data_path.as_str(), temp_path.as_str()).await{
             Ok(use_ms) => {
-                tracing::info!("download_merge, use: {:?}", use_ms);
+                tracing::debug!("download_merge, use: {:?}", use_ms);
             },
             Err(e) => {
                 tracing::error!("download_merge, error: {}", e);
@@ -214,7 +214,7 @@ async fn presign(sign: String, with_client: Arc<SignatureClient>) -> Result<Stri
     if reader.code != 0 {
         return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "status_code != 200")))
     }
-    tracing::info!("download, presign->use {:?}", start.elapsed());
+    tracing::info!("download_presign, use {:?}", start.elapsed());
     Ok(reader.data.endpoint)
 }
 
@@ -257,7 +257,7 @@ pub async fn download_part (
 
     let part_path = reader_ref.local_part_path(data_path, idx_part, temp_path);
     let range = format!("bytes={}-{}", start_pos, end_pos);
-    tracing::info!("download_part, presign: {}, use: {:?}", presign_url, start.elapsed());
+    tracing::debug!("download_part, presign: {}, use: {:?}", presign_url, start.elapsed());
 
 
     let max_retries = 20;
@@ -319,14 +319,21 @@ pub async fn download_part (
         }
     };
 
-    // TODO: 计算分块的平均速度
+    let  end_duration = start.elapsed();
+    let use_ms = end_duration.as_millis();
+    let download_speed = resp_len / use_ms as usize * 1000;
+    let download_speed_str = HumanBytes(download_speed as u64);
+
+
     tracing::info!(
-        "download_part: completed: ({}), start_pos {}, end_pos: {}, use: {:?}, path: {:?}",
+        "download_part:, use: {:?}, ({}/{}s), retry: {}, pos: ({}){}-{}",
+        end_duration,
         resp_len,
+        download_speed_str,
+        retry_count,
+        idx_part,
         start_pos,
-        end_pos,
-        start.elapsed(),
-        part_path);
+        end_pos);
     Ok(resp_len as u128)
 }
 

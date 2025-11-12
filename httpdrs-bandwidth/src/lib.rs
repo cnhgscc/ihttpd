@@ -39,7 +39,7 @@ impl Bandwidth {
         // 获取值
         let used_bytes = self.period_used.swap(0, Ordering::Relaxed);
         if used_bytes != 0 {
-            tracing::warn!("bandwidth, used_bytes: {}", used_bytes);
+            tracing::info!("download_bandwidth, used_bytes: {}", used_bytes);
             self.notify.notify_waiters();
         }
         used_bytes * 1000 / elapsed_ms
@@ -55,7 +55,7 @@ impl Bandwidth {
             if old_used + desired_bytes > self.max_bs {
                 self.period_used.fetch_sub(desired_bytes, Ordering::Relaxed);
                 let _permit = self.semaphore.acquire().await?;
-                tracing::info!("bandwidth, waiting -> desired: {}  exceed max_bs: {}", desired_bytes, self.max_bs);
+                tracing::info!("download_bandwidth, waiting -> desired: {}  exceed max_bs: {}", desired_bytes, self.max_bs);
                 self.notify.notified().await;
                 if loop_count > 0 {
                     if loop_count < 2 {
@@ -68,7 +68,7 @@ impl Bandwidth {
                 continue
             }
             if loop_count > 0 {
-                tracing::warn!("bandwidth, permit -> use: {:?}, loop_count: {} desired: {},  pool: {}", start.elapsed(), loop_count, desired_bytes, old_used);
+                tracing::info!("bandwidth, permit -> use: {:?}, loop_count: {} desired: {},  pool: {}", start.elapsed(), loop_count, desired_bytes, old_used);
             }
             return Ok(old_used)
         }
