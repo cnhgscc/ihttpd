@@ -43,7 +43,7 @@ def init_with_cmdargs(cmd_args):
         print(f"baai-flagdataset: presign, {presign}")
         print(f"baai-flagdataset: network, {network}")
 
-        multi_download(use_path, presign, network,10)
+        multi_download(use_path, presign, network,100)
 
     except Exception as e:
         print(e)
