@@ -53,50 +53,50 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client
 
 
     // 下载文件
-    let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(2000);
+    let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(10000);
     tokio::spawn(async move {
-    // 文件下载并发控制200, 主要受限于存储的QPS
-    let semaphore = Arc::new(Semaphore::new(2000));
-    let chunk_size = 1024 * 1024 * 5;
-    while let Some((_meta_path, sign, size)) = rx_read.recv().await {
-        let bandwidth_ = Arc::clone(&bandwidth);
-        let jobs_ = Arc::clone(&jobs);
-        let client_down_ = Arc::clone(&client_down);
-        let client_sign_ = Arc::clone(&client_sign);
-        let tx_down_ = tx_down.clone();
-        let semaphore_ = Arc::clone(&semaphore);
+        // 文件下载并发控制10000, 主要受限于存储的QPS
+        let semaphore = Arc::new(Semaphore::new(10000));
+        let chunk_size = 1024 * 1024 * 5;
+        while let Some((_meta_path, sign, size)) = rx_read.recv().await {
+            let bandwidth_ = Arc::clone(&bandwidth);
+            let jobs_ = Arc::clone(&jobs);
+            let client_down_ = Arc::clone(&client_down);
+            let client_sign_ = Arc::clone(&client_sign);
+            let tx_down_ = tx_down.clone();
+            let semaphore_ = Arc::clone(&semaphore);
 
-        // 开启一个任务下载文件
-        tokio::spawn(async move {
-            let _permit = semaphore_.acquire().await.unwrap(); // 最大并发下载文件数量
-            let (download_name, download_duration) = match download_file(
-                bandwidth_,
-                jobs_,
-                client_down_,
-                client_sign_,
-                sign,
-                size,
-                chunk_size
-            ).await{
-                Ok((download_name, download_duration)) => {
-                    (download_name, Option::from(download_duration))
-                }
-                Err(e) => {
-                    (e.to_string(), None)
-                }
-            };
+            // 开启一个任务下载文件
+            tokio::spawn(async move {
+                let _permit = semaphore_.acquire().await.unwrap(); // 最大并发下载文件数量
+                let (download_name, download_duration) = match download_file(
+                    bandwidth_,
+                    jobs_,
+                    client_down_,
+                    client_sign_,
+                    sign,
+                    size,
+                    chunk_size
+                ).await{
+                    Ok((download_name, download_duration)) => {
+                        (download_name, Option::from(download_duration))
+                    }
+                    Err(e) => {
+                        (e.to_string(), None)
+                    }
+                };
 
-           match download_duration {
-               Some(download_duration) => {
-                   tx_down_.send((download_name, download_duration)).await.unwrap();
+               match download_duration {
+                   Some(download_duration) => {
+                       tx_down_.send((download_name, download_duration)).await.unwrap();
+                   }
+                   None => {
+                   }
                }
-               None => {
-               }
-           }
 
-        });
-    }
-    drop(tx_down);
+            });
+        }
+        drop(tx_down);
     });
 
     while let Some((name, use_ms)) = rx_down.recv().await {
