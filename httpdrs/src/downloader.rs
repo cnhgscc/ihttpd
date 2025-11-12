@@ -23,37 +23,8 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client
     // 获取未下载的文件
     // meta 文件并发读取量为 10
     let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(10);
-    tokio::spawn(async move {
-        for csv_path in csv_paths {
-            let tx_sender = tx_read.clone();
-            let data_path = data_path.clone();
-            tokio::spawn(async move {
-                let csv_meta_path =  csv_path.unwrap().path().to_string_lossy().to_string();
-                let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
-
-                for raw_result in csv_reader.records(){
-                    let raw_line = raw_result.unwrap();
-                    let sign = raw_line.get(0).unwrap().to_string();
-                    let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
-                    let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
-                    if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()) {
-                        if reader_size == size {
-                            continue
-                        }
-                        tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
-                    }else {
-                        tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
-                    }
-                }
-            });
-        }
-        // 检查完毕
-        drop(tx_read);
-    });
-
-
-    // 下载文件
     let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(10000);
+
     tokio::spawn(async move {
         // 文件下载并发控制10000, 主要受限于存储的QPS
         let semaphore = Arc::new(Semaphore::new(10000));
@@ -86,18 +57,47 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client
                     }
                 };
 
-               match download_duration {
-                   Some(download_duration) => {
-                       tx_down_.send((download_name, download_duration)).await.unwrap();
-                   }
-                   None => {
-                   }
-               }
+                match download_duration {
+                    Some(download_duration) => {
+                        tx_down_.send((download_name, download_duration)).await.unwrap();
+                    }
+                    None => {
+                    }
+                }
 
             });
         }
         drop(tx_down);
     });
+
+    tokio::spawn(async move {
+        for csv_path in csv_paths {
+            let tx_sender = tx_read.clone();
+            let data_path = data_path.clone();
+            tokio::spawn(async move {
+                let csv_meta_path =  csv_path.unwrap().path().to_string_lossy().to_string();
+                let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
+
+                for raw_result in csv_reader.records(){
+                    let raw_line = raw_result.unwrap();
+                    let sign = raw_line.get(0).unwrap().to_string();
+                    let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
+                    let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
+                    if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()) {
+                        if reader_size == size {
+                            continue
+                        }
+                        tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
+                    }else {
+                        tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
+                    }
+                }
+            });
+        }
+        // 检查完毕
+        drop(tx_read);
+    });
+
 
     while let Some((name, use_ms)) = rx_down.recv().await {
         tracing::debug!("download_complete, use: {:?}, file: {:?}", use_ms, name);
