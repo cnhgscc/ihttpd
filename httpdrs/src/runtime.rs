@@ -38,9 +38,9 @@ pub fn start_multi_thread(
         .pool_idle_timeout(Duration::from_secs(30))
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(300))
-        .user_agent("WiSearch Downloader")
+        .user_agent("baai-downloader")
         .build()
-        .expect("Failed to build reqwest client"));
+        .expect("failed to build reqwest client"));
 
     let client_sign = Arc::new(SignatureClient::new(presign_api, network));
 
