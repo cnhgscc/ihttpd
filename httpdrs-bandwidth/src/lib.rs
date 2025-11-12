@@ -39,7 +39,7 @@ impl Bandwidth {
         // 获取值
         let used_bytes = self.period_used.swap(0, Ordering::Relaxed);
         if used_bytes != 0 {
-            tracing::info!("download_bandwidth, used_bytes: {}", used_bytes);
+            tracing::info!("download_bandwidth, reset_period: {}", used_bytes);
             self.notify.notify_waiters();
         }
         used_bytes * 1000 / elapsed_ms
