@@ -18,37 +18,42 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
     let data_path = RUNTIME.lock().unwrap().data_path.clone();
     let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
 
-    // 检查未下载并发控制
-    let (tx, mut rx) = mpsc::channel::<(String, String, u64)>(10);
-    for csv_path in csv_paths {
-        let tx_sender = tx.clone();
-        let data_path = data_path.clone();
-        tokio::spawn(async move {
-            let csv_meta_path =  csv_path.unwrap().path().to_string_lossy().to_string();
-            let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
+    let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(10);
+    tokio::spawn(async move {
+        for csv_path in csv_paths {
+            let tx_sender = tx_read.clone();
+            let data_path = data_path.clone();
+            tokio::spawn(async move {
+                let csv_meta_path =  csv_path.unwrap().path().to_string_lossy().to_string();
+                let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
 
-            for raw_result in csv_reader.records(){
-                let raw_line = raw_result.unwrap();
-                let sign = raw_line.get(0).unwrap().to_string();
-                let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
-                let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
-                if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()) {
-                    if reader_size == size {
-                        continue
+                for raw_result in csv_reader.records(){
+                    let raw_line = raw_result.unwrap();
+                    let sign = raw_line.get(0).unwrap().to_string();
+                    let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
+                    let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
+                    if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()) {
+                        if reader_size == size {
+                            continue
+                        }
+                        tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
+                    }else {
+                        tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
                     }
-                    tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
-                }else {
-                    tx_sender.send((csv_meta_path.clone(), sign, size)).await.unwrap();
                 }
-            }
-        });
-    }
-    drop(tx);
+            });
+        }
+        // 检查完毕
+        drop(tx_read);
+    });
 
-    let semaphore = Arc::new(Semaphore::new(500)); // 文件下载并发控制
+
     let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(100);
+    tokio::spawn(async move {
+    // 文件下载并发控制500, 主要受限于存储的QPS
+    let semaphore = Arc::new(Semaphore::new(500));
     let chunk_size = 1024 * 1024 * 5;
-    while let Some((_meta_path, sign, size)) = rx.recv().await {
+    while let Some((_meta_path, sign, size)) = rx_read.recv().await {
         let bandwidth_ = Arc::clone(&bandwidth);
         let client_down_ = Arc::clone(&client_down);
         let client_sign_ = Arc::clone(&client_sign);
@@ -83,6 +88,8 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
         });
     }
     drop(tx_down);
+    });
+
     while let Some((name, use_ms)) = rx_down.recv().await {
         tracing::info!("download_complete, use: {:?}, file: {:?}", use_ms, name);
     } // 下载任务处理完成
