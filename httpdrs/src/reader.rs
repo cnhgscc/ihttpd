@@ -1,6 +1,5 @@
 use crate::stats::RUNTIME;
 use csv::Reader;
-use httpdrs_core::httpd;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
