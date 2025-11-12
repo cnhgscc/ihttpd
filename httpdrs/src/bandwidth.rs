@@ -1,12 +1,12 @@
+use httpdrs_core::httpd::Bandwidth;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use httpdrs_core::httpd::Bandwidth;
 
 use crate::stats::RUNTIME;
 
 pub(crate) async fn reset_period(
     reset_bandwidth: Arc<Bandwidth>,
-    token_bandwidth: CancellationToken
+    token_bandwidth: CancellationToken,
 ) {
     loop {
         tokio::select! {

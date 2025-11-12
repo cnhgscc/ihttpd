@@ -1,26 +1,24 @@
+use std::sync::Arc;
 use std::thread::sleep;
-use std::sync::{Arc};
 use std::time::Duration;
 
-use tokio::runtime;
-use tokio_util::sync::CancellationToken;
-use reqwest::Client;
-use futures::future::join_all;
-use tokio::sync::{mpsc, Semaphore};
-use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use crate::core::{httpd, pbar};
-use crate::{bandwidth, downloader, merge, reader, watch};
 use crate::stats::RUNTIME;
-
+use crate::{bandwidth, downloader, merge, reader, watch};
+use futures::future::join_all;
+use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
+use reqwest::Client;
+use tokio::runtime;
+use tokio::sync::{Semaphore, mpsc};
+use tokio_util::sync::CancellationToken;
 
 pub fn start_multi_thread(
     max_bandwidth: u64,
     max_parallel: usize,
     use_loc: String,
     presign_api: String,
-    network: String
-) -> Result<(), Box<dyn std::error::Error>>{
-
+    network: String,
+) -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_multi_thread()
         .worker_threads(100)
         .enable_all()
@@ -33,18 +31,20 @@ pub fn start_multi_thread(
     RUNTIME.lock().unwrap().data_path = format!("{}/data", use_loc);
     RUNTIME.lock().unwrap().temp_path = format!("{}/temp", use_loc);
 
-    let client_down = Arc::new(Client::builder()
-        .pool_max_idle_per_host(1000)
-        .pool_idle_timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(10))
-        .timeout(Duration::from_secs(300))
-        .user_agent("baai-downloader")
-        .build()
-        .expect("failed to build reqwest client"));
+    let client_down = Arc::new(
+        Client::builder()
+            .pool_max_idle_per_host(1000)
+            .pool_idle_timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(300))
+            .user_agent("baai-downloader")
+            .build()
+            .expect("failed to build reqwest client"),
+    );
 
     let client_sign = Arc::new(SignatureClient::new(presign_api, network));
 
-    let httpd_bandwidth =  httpd::Bandwidth::new(1024*1024*(max_bandwidth+1)); // 网络带宽控制
+    let httpd_bandwidth = httpd::Bandwidth::new(1024 * 1024 * (max_bandwidth + 1)); // 网络带宽控制
     let httpd_jobs = Arc::new(Semaphore::new(max_parallel)); // 下载器并发控制
 
     // 处理合并的队列
@@ -52,23 +52,23 @@ pub fn start_multi_thread(
 
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 
-
     let pb = pbar::create();
 
-
-    rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
+    rt.spawn(bandwidth::reset_period(
+        Arc::clone(&httpd_bandwidth),
+        rt_token.clone(),
+    ));
     rt.spawn(watch::init(pb.clone(), rt_token.clone()));
 
     let spawn_read = rt.spawn(reader::init());
     let spawn_check = rt.spawn(reader::checkpoint());
-    let spawn_down = rt.spawn(
-        downloader::down(
-            Arc::clone(&httpd_bandwidth),
-            Arc::clone(&httpd_jobs),
-            Arc::clone(&client_down),
-            Arc::clone(&client_sign),
-            Arc::new(tx_merge),
-        ));
+    let spawn_down = rt.spawn(downloader::down(
+        Arc::clone(&httpd_bandwidth),
+        Arc::clone(&httpd_jobs),
+        Arc::clone(&client_down),
+        Arc::clone(&client_sign),
+        Arc::new(tx_merge),
+    ));
     let spawn_merge = rt.spawn(merge::init(rx_merge));
     let event_tasks = vec![spawn_read, spawn_check, spawn_down, spawn_merge];
 
@@ -78,13 +78,16 @@ pub fn start_multi_thread(
     sleep(Duration::from_secs(1));
     rt_token.cancel();
     tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
-    let (
-        runtime_require_bytes, runtime_require_count, runtime_download_speed
-    ) = {
+    let (runtime_require_bytes, runtime_require_count, runtime_download_speed) = {
         let r = RUNTIME.lock().unwrap();
         (r.require_bytes, r.require_count, r.download_speed)
     };
-    pb.set_message(pbar::format(runtime_require_bytes, runtime_require_count, runtime_download_speed, 1.0));
+    pb.set_message(pbar::format(
+        runtime_require_bytes,
+        runtime_require_count,
+        runtime_download_speed,
+        1.0,
+    ));
     pb.finish();
 
     Ok(())

@@ -1,6 +1,5 @@
 use tracing_appender::rolling;
 pub fn try_logger_init(log_path: &str) {
-
     let appender = rolling::daily(log_path, "app.log");
 
     let subscriber = tracing_subscriber::fmt()
@@ -8,11 +7,10 @@ pub fn try_logger_init(log_path: &str) {
         .with_file(true)
         .with_thread_ids(true)
         .with_ansi(false)
-        .with_writer(appender)// 显示线程ID
+        .with_writer(appender) // 显示线程ID
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
     tracing::info!("Logger initialized: baai-flagdatset-rs");
 }
-

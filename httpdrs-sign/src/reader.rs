@@ -1,6 +1,5 @@
-use std::fmt::Display;
 use serde::{Deserialize, Serialize};
-
+use std::fmt::Display;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReaderRequest<'a> {
@@ -23,8 +22,6 @@ impl Display for ReaderRequest<'_> {
         write!(f, "{} -> {}", self.network, self.download_sign)
     }
 }
-
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReaderData {

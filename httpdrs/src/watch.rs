@@ -1,13 +1,12 @@
-use tokio_util::sync::CancellationToken;
-use tokio::time::Instant;
 use indicatif::{HumanBytes, ProgressBar};
+use tokio::time::Instant;
+use tokio_util::sync::CancellationToken;
 
 use httpdrs_core::pbar;
 
 use crate::stats::RUNTIME;
 
-
-pub(crate) async fn init(pb:ProgressBar, token_bandwidth: CancellationToken){
+pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
     let start = Instant::now();
 
     pb.set_message(pbar::format(0, 0, 0, 0.0));
@@ -68,5 +67,4 @@ pub(crate) async fn init(pb:ProgressBar, token_bandwidth: CancellationToken){
             }
         }
     }
-
 }
