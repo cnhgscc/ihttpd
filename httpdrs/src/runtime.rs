@@ -60,8 +60,7 @@ pub fn start_multi_thread(
     ));
     rt.spawn(watch::init(pb.clone(), rt_token.clone()));
 
-    let spawn_read = rt.spawn(reader::init());
-    let spawn_check = rt.spawn(reader::checkpoint());
+    let spawn_read = rt.spawn(reader::init(rt_token.clone()));
     let spawn_down = rt.spawn(downloader::down(
         Arc::clone(&httpd_bandwidth),
         Arc::clone(&httpd_jobs),
@@ -69,14 +68,49 @@ pub fn start_multi_thread(
         Arc::clone(&client_sign),
         Arc::new(tx_merge),
     ));
-    let spawn_merge = rt.spawn(merge::init(rx_merge));
-    let event_tasks = vec![spawn_read, spawn_check, spawn_down, spawn_merge];
+    let spawn_merge = rt.spawn(merge::init(rx_merge, rt_token.clone()));
 
-    let _ = rt.block_on(join_all(event_tasks));
+    // 等待所以任务处理完成
+    rt.block_on(async move {
+        #[cfg(unix)]
+        let signal_future = async {
+            let mut sigint =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                    .expect("");
+            let mut sigterm =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("");
+
+            tokio::select! {
+                _ = sigint.recv() => {
+                    println!("\n收到中断信号 (Ctrl+C)，正在退出...");
+                },
+                _ = sigterm.recv() => {
+                    println!("\n收到终止信号，正在退出...");
+                }
+            }
+        };
+
+        #[cfg(windows)]
+        let signal_future = async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("Failed to install Ctrl+C handler");
+            println!("\n收到 Ctrl+C 信号，正在退出...");
+        };
+
+        let event_tasks = vec![spawn_read, spawn_down, spawn_merge];
+        tokio::select! {
+            _ = join_all(event_tasks) => {}
+            _ = signal_future => {
+                rt_token.cancel();
+                tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
+            }
+        }
+    });
+
     rt.shutdown_background();
 
-    sleep(Duration::from_secs(1));
-    rt_token.cancel();
     tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
     let (runtime_require_bytes, runtime_require_count, runtime_download_speed) = {
         let r = RUNTIME.lock().unwrap();
