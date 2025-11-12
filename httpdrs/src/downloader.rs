@@ -14,7 +14,13 @@ use httpdrs_core::httpd::Bandwidth;
 use crate::stats::RUNTIME;
 
 // 下载流程
-pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client_down: Arc<Client>, client_sign: Arc<SignatureClient>) {
+pub(crate) async fn down(
+    bandwidth: Arc<Bandwidth>,
+    jobs: Arc<Semaphore>,
+    client_down: Arc<Client>,
+    client_sign: Arc<SignatureClient>,
+    tx_merge: Arc<mpsc::Sender<(Arc<HttpdMetaReader>, u64, String, String)>>,
+) {
 
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
     let data_path = RUNTIME.lock().unwrap().data_path.clone();
@@ -34,6 +40,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client
             let jobs_ = Arc::clone(&jobs);
             let client_down_ = Arc::clone(&client_down);
             let client_sign_ = Arc::clone(&client_sign);
+            let tx_merge_ = Arc::clone(&tx_merge);
             let tx_down_ = tx_down.clone();
             let semaphore_ = Arc::clone(&semaphore);
 
@@ -45,6 +52,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client
                     jobs_,
                     client_down_,
                     client_sign_,
+                    tx_merge_,
                     sign,
                     size,
                     chunk_size
@@ -102,6 +110,9 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client
     while let Some((name, use_ms)) = rx_down.recv().await {
         tracing::debug!("download_complete, use: {:?}, file: {:?}", use_ms, name);
     } // 下载任务处理完成
+
+    // TODO: 释放 tx_merge
+
 }
 
 
@@ -110,6 +121,7 @@ async fn download_file(
     jobs: Arc<Semaphore>,
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
+    tx_merge: Arc<mpsc::Sender<(Arc<HttpdMetaReader>, u64, String, String)>>,
     sign: String,
     require_size: u64,
     chunk_size: u64
@@ -204,15 +216,7 @@ async fn download_file(
 
     // 下载完毕触发合并
     if completed_parts == total_parts {
-        match download_merge(Arc::clone(&reader_merge), total_parts, data_path.as_str(), temp_path.as_str()).await{
-            Ok(use_ms) => {
-                tracing::info!("download_merge, use: {:?}", use_ms);
-            },
-            Err(e) => {
-                tracing::error!("download_merge, error: {}", e);
-                return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "download_merge error")))
-            }
-        };
+        tx_merge.send((Arc::clone(&reader_merge), total_parts, (*data_path).clone(), (*temp_path).clone())).await.unwrap();
     }
     Ok((reader_ref.local_relative_path().to_string_lossy().to_string(), start.elapsed()))
 }
@@ -354,54 +358,4 @@ pub async fn download_part (
         start_pos,
         end_pos);
     Ok(resp_len as u128)
-}
-
-pub async  fn download_merge (
-    reader: Arc<HttpdMetaReader>,
-    chunk_nums: u64,
-    data_path: &str,
-    temp_path: &str,
-) -> Result< tokio::time::Duration, Box<dyn std::error::Error>>
-{
-
-    let start = Instant::now();
-
-    let file_path = reader.local_absolute_path_str(data_path);
-    let _ = tokio::fs::remove_file(file_path.clone()).await.unwrap_or( ());
-
-    if let Some(parent) = std::path::Path::new(&file_path).parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).await?;
-        }
-    }
-    let mut dest_file = match fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(file_path.clone())
-        .await{
-        Ok(dest_file) => dest_file,
-        Err(err) => {
-            return Err(format!("download_merge, when open dest file, encountered en err: {}, file: {:?}", err, file_path.clone()).into());
-        }
-    };
-
-    for idx_part in 0..chunk_nums {
-        let part_path = reader.local_part_path(data_path, idx_part, temp_path);
-        let mut part_file = match fs::File::open(part_path.clone()).await{
-            Ok(part_file) => part_file,
-            Err(err) => {
-                return Err(format!("download_merge, when open part file, encountered an err: {}，part: {:?}", err, part_path.clone()).into());
-            }
-        };
-        tokio::io::copy(&mut part_file, &mut dest_file).await?;
-    }
-    for idx_part in 0..chunk_nums {
-        let part_path = reader.local_part_path(data_path, idx_part, temp_path);
-        let _ = tokio::fs::remove_file(part_path).await.unwrap_or( ());
-    }
-
-    // TODO: 放到分片下载完成处理
-    // RUNTIME.lock().unwrap().download_count += 1;
-
-    Ok(start.elapsed())
 }

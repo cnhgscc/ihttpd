@@ -11,6 +11,7 @@ mod stats;
 mod reader;
 mod downloader;
 mod watch;
+mod merge;
 
 pub mod logger {
     pub use httpdrs_logger::*;

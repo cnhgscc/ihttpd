@@ -6,10 +6,10 @@ use tokio::runtime;
 use tokio_util::sync::CancellationToken;
 use reqwest::Client;
 use futures::future::join_all;
-use tokio::sync::Semaphore;
-use httpdrs_core::httpd::SignatureClient;
+use tokio::sync::{mpsc, Semaphore};
+use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use crate::core::{httpd, pbar};
-use crate::{bandwidth, downloader, reader, watch};
+use crate::{bandwidth, downloader, merge, reader, watch};
 use crate::stats::RUNTIME;
 
 
@@ -47,6 +47,9 @@ pub fn start_multi_thread(
     let httpd_bandwidth =  httpd::Bandwidth::new(1024*1024*(max_bandwidth+1)); // 网络带宽控制
     let httpd_jobs = Arc::new(Semaphore::new(max_parallel)); // 下载器并发控制
 
+    // 处理合并的队列
+    let (tx_merge, rx_merge) = mpsc::channel::<(Arc<HttpdMetaReader>, u64, String, String)>(100);
+
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 
 
@@ -63,9 +66,11 @@ pub fn start_multi_thread(
             Arc::clone(&httpd_bandwidth),
             Arc::clone(&httpd_jobs),
             Arc::clone(&client_down),
-            Arc::clone(&client_sign))
-    );
-    let event_tasks = vec![spawn_read, spawn_check, spawn_down];
+            Arc::clone(&client_sign),
+            Arc::new(tx_merge),
+        ));
+    let spawn_merge = rt.spawn(merge::init(rx_merge));
+    let event_tasks = vec![spawn_read, spawn_check, spawn_down, spawn_merge];
 
     let _ = rt.block_on(join_all(event_tasks));
     rt.shutdown_background();
