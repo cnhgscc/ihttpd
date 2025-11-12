@@ -91,6 +91,10 @@ pub(crate) async fn down(
                     let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
                     if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()) {
                         if reader_size == size {
+                            // TODO: 完成下载的文件
+                            let mut rt = RUNTIME.lock().unwrap();
+                            rt.completed_bytes += size;
+                            rt.completed_count += 1;
                             continue;
                         }
                         tx_sender
