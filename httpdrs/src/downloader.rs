@@ -199,6 +199,9 @@ async fn download_file(
         tracing::debug!("download_part, complete {}, use: {}  part: {:?}, {}", reader_merge, download_len, idx_part, download_signal);
     }
 
+    // 文件下载完成，计数加1
+    RUNTIME.lock().unwrap().download_count += 1;
+
     // 下载完毕触发合并
     if completed_parts == total_parts {
         match download_merge(Arc::clone(&reader_merge), total_parts, data_path.as_str(), temp_path.as_str()).await{
@@ -397,7 +400,8 @@ pub async  fn download_merge (
         let _ = tokio::fs::remove_file(part_path).await.unwrap_or( ());
     }
 
-    RUNTIME.lock().unwrap().download_count += 1;
+    // TODO: 放到分片下载完成处理
+    // RUNTIME.lock().unwrap().download_count += 1;
 
     Ok(start.elapsed())
 }
