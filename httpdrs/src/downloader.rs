@@ -26,7 +26,7 @@ pub(crate) async fn down(
 
     // 获取未下载的文件
     // meta 文件并发读取量为 10
-    let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(10);
+    let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(1);
 
     let stop = tokio::spawn(async move {
         // 文件下载并发控制10000, 主要受限于存储的QPS
