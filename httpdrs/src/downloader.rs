@@ -206,7 +206,7 @@ async fn download_file(
     if completed_parts == total_parts {
         match download_merge(Arc::clone(&reader_merge), total_parts, data_path.as_str(), temp_path.as_str()).await{
             Ok(use_ms) => {
-                tracing::debug!("download_merge, use: {:?}", use_ms);
+                tracing::info!("download_merge, use: {:?}", use_ms);
             },
             Err(e) => {
                 tracing::error!("download_merge, error: {}", e);
