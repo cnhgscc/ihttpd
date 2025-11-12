@@ -19,7 +19,7 @@ pub(crate) async fn init(pb:ProgressBar, token_bandwidth: CancellationToken){
     loop {
         tokio::select! {
             _ = tokio::time::sleep(tokio::time::Duration::from_millis(1000)) => {
-                let start_count = last_count;
+                let _start_count = last_count;
                 let start_bytes = last_bytes;
 
 
