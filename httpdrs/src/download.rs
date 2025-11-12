@@ -9,7 +9,7 @@ use tokio::time::Instant;
 
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 
-use crate::presgin;
+use crate::presign;
 
 /// download_part 请求网络获取分片数据
 pub async fn download_part(
@@ -26,7 +26,7 @@ pub async fn download_part(
 ) -> Result<u128, Box<dyn std::error::Error>> {
     let start = Instant::now();
 
-    let presign_url = match presgin::read(sign.clone(), client_sign).await {
+    let presign_url = match presign::read(sign.clone(), client_sign).await {
         Ok(presign_url) => presign_url,
         Err(err) => {
             tracing::error!("download_err, presign err: {}", err);
