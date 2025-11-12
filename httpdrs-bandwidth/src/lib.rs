@@ -15,21 +15,12 @@ pub struct Bandwidth {
 }
 
 impl Bandwidth {
-    pub fn new(max_bs: u64) -> Self {
-        Bandwidth {
-            max_bs,
-            period_used: AtomicU64::new(0),
-            notify: Notify::new(),
-            semaphore: Semaphore::new(20),
-        }
-    }
-
-    pub fn init(max_bs: u64) -> Arc<Self>{
+    pub fn new(max_bs: u64) -> Arc<Self>{
         let bw = Bandwidth {
             max_bs,
             period_used: AtomicU64::new(0),
             notify: Notify::new(),
-            semaphore: Semaphore::new(2000),
+            semaphore: Semaphore::new(30),
         };
         tracing::info!("Bandwidth init: {}", max_bs);
         Arc::new(bw)
@@ -46,7 +37,7 @@ impl Bandwidth {
     }
 
     pub async fn permit(&self, desired_bytes: u64) -> Result<u64, Box<dyn std::error::Error>>{
-
+        let _permit = self.semaphore.acquire().await?;
         let start = tokio::time::Instant::now();
 
         let mut loop_count = 0;
@@ -54,7 +45,6 @@ impl Bandwidth {
             let old_used = self.period_used.fetch_add(desired_bytes, Ordering::Relaxed);
             if old_used + desired_bytes > self.max_bs {
                 self.period_used.fetch_sub(desired_bytes, Ordering::Relaxed);
-                let _permit = self.semaphore.acquire().await?;
                 tracing::info!("download_bandwidth, waiting -> desired: {}  exceed max_bs: {}", desired_bytes, self.max_bs);
                 self.notify.notified().await;
                 if loop_count > 0 {

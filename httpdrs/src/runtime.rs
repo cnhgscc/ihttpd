@@ -48,7 +48,7 @@ pub fn start_multi_thread(
     let pb = pbar::create();
 
 
-    let httpd_bandwidth =  httpd::Bandwidth::init(1024*1024*(max_bandwidth+5)); // 网络带宽控制
+    let httpd_bandwidth =  httpd::Bandwidth::new(1024*1024*(max_bandwidth+1)); // 网络带宽控制
     rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
     rt.spawn(watch::init(pb.clone(), rt_token.clone()));
 

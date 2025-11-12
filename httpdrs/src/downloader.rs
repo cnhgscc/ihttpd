@@ -13,12 +13,15 @@ use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use httpdrs_core::httpd::Bandwidth;
 use crate::stats::RUNTIME;
 
+// 下载流程
 pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, client_sign: Arc<SignatureClient>) {
 
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
     let data_path = RUNTIME.lock().unwrap().data_path.clone();
     let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
 
+    // 获取未下载的文件
+    // meta 文件并发读取量为 10
     let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(10);
     tokio::spawn(async move {
         for csv_path in csv_paths {
@@ -49,10 +52,11 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
     });
 
 
+    // 下载文件
     let (tx_down, mut rx_down) = mpsc::channel::<(String, tokio::time::Duration)>(100);
     tokio::spawn(async move {
-    // 文件下载并发控制500, 主要受限于存储的QPS
-    let semaphore = Arc::new(Semaphore::new(500));
+    // 文件下载并发控制200, 主要受限于存储的QPS
+    let semaphore = Arc::new(Semaphore::new(100));
     let chunk_size = 1024 * 1024 * 5;
     while let Some((_meta_path, sign, size)) = rx_read.recv().await {
         let bandwidth_ = Arc::clone(&bandwidth);
@@ -60,9 +64,13 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
         let client_sign_ = Arc::clone(&client_sign);
         let tx_down_ = tx_down.clone();
         let semaphore_ = Arc::clone(&semaphore);
+
+        // 开启一个任务下载文件
+        // 1. 使用带宽控制并发数量
+        // 2. TODO: 是否增加分片并行的限制，现在是带宽控制
         tokio::spawn(async move {
-            let _permit = semaphore_.acquire().await.unwrap();
-            let (download_name, download_duration) = match download(
+            let _permit = semaphore_.acquire().await.unwrap(); // 最大并发下载文件数量
+            let (download_name, download_duration) = match download_file(
                 bandwidth_,
                 client_down_,
                 client_sign_,
@@ -97,7 +105,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
 }
 
 
-async fn download(
+async fn download_file(
     bandwidth: Arc<Bandwidth>,
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
@@ -150,7 +158,7 @@ async fn download(
         let client_down_span = Arc::clone(&client_down);
         let client_sign_span = Arc::clone(&client_sign);
         tokio::spawn(async move {
-            let _ = bandwidth_.permit(part_size).await; // 带宽控制
+            let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
 
             let (download_len, download_signal)=  match download_part(
                 client_down_span,
@@ -219,6 +227,7 @@ async fn presign(sign: String, with_client: Arc<SignatureClient>) -> Result<Stri
 }
 
 
+/// download_part 请求网络获取分片数据
 pub async fn download_part (
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
@@ -289,11 +298,13 @@ pub async fn download_part (
         }
     };
 
+    let resp_status = resp_part.status();
     let resp_byte = match  resp_part.bytes().await.ok(){
         Some(resp_bytes) => {
             resp_bytes
         },
         None => {
+            tracing::error!("download_part, to bytes err, when status {}", resp_status);
             return Err("download_err, to bytes err".into());
         }
     };
