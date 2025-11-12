@@ -14,7 +14,7 @@ use httpdrs_core::httpd::Bandwidth;
 use crate::stats::RUNTIME;
 
 // 下载流程
-pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, client_sign: Arc<SignatureClient>) {
+pub(crate) async fn down(bandwidth: Arc<Bandwidth>, jobs: Arc<Semaphore>, client_down: Arc<Client>, client_sign: Arc<SignatureClient>) {
 
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
     let data_path = RUNTIME.lock().unwrap().data_path.clone();
@@ -60,18 +60,18 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
     let chunk_size = 1024 * 1024 * 5;
     while let Some((_meta_path, sign, size)) = rx_read.recv().await {
         let bandwidth_ = Arc::clone(&bandwidth);
+        let jobs_ = Arc::clone(&jobs);
         let client_down_ = Arc::clone(&client_down);
         let client_sign_ = Arc::clone(&client_sign);
         let tx_down_ = tx_down.clone();
         let semaphore_ = Arc::clone(&semaphore);
 
         // 开启一个任务下载文件
-        // 1. 使用带宽控制并发数量
-        // 2. TODO: 是否增加分片并行的限制，现在是带宽控制
         tokio::spawn(async move {
             let _permit = semaphore_.acquire().await.unwrap(); // 最大并发下载文件数量
             let (download_name, download_duration) = match download_file(
                 bandwidth_,
+                jobs_,
                 client_down_,
                 client_sign_,
                 sign,
@@ -107,6 +107,7 @@ pub(crate) async fn down(bandwidth: Arc<Bandwidth>, client_down: Arc<Client>, cl
 
 async fn download_file(
     bandwidth: Arc<Bandwidth>,
+    jobs: Arc<Semaphore>,
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
     sign: String,
@@ -149,17 +150,21 @@ async fn download_file(
         let part_end = (idx_part + 1) * chunk_size;
         let part_end = if part_end > require_size { require_size } else { part_end };
         let part_size = part_end - part_start;
+
         let reader_ = Arc::clone(&reader_ref);
         let bandwidth_ = Arc::clone(&bandwidth);
+        let jobs_ = Arc::clone(&jobs);
         let tx_part_ = tx_part.clone();
         let sign_ = sign.clone();
         let data_path_ = Arc::clone(&data_path);
         let temp_path_ = Arc::clone(&temp_path);
+
         let client_down_span = Arc::clone(&client_down);
         let client_sign_span = Arc::clone(&client_sign);
-        tokio::spawn(async move {
-            let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
 
+        let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
+        tokio::spawn(async move {
+            let _permit = jobs_.acquire().await.unwrap(); // 下载器并发控制
             let (download_len, download_signal)=  match download_part(
                 client_down_span,
                 client_sign_span,
@@ -180,7 +185,6 @@ async fn download_file(
                     (0, 0)
                 }
             };
-
 
             tx_part_.send((idx_part, download_len, download_signal)).await.unwrap();
         });

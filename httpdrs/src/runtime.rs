@@ -6,6 +6,7 @@ use tokio::runtime;
 use tokio_util::sync::CancellationToken;
 use reqwest::Client;
 use futures::future::join_all;
+use tokio::sync::Semaphore;
 use httpdrs_core::httpd::SignatureClient;
 use crate::core::{httpd, pbar};
 use crate::{bandwidth, downloader, reader, watch};
@@ -42,13 +43,15 @@ pub fn start_multi_thread(
 
     let client_sign = Arc::new(SignatureClient::new(presign_api, network));
 
+    let httpd_bandwidth =  httpd::Bandwidth::new(1024*1024*(max_bandwidth+1)); // 网络带宽控制
+    let httpd_jobs = Arc::new(Semaphore::new(100)); // 下载器并发控制
+
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 
 
     let pb = pbar::create();
 
 
-    let httpd_bandwidth =  httpd::Bandwidth::new(1024*1024*(max_bandwidth+1)); // 网络带宽控制
     rt.spawn(bandwidth::reset_period(Arc::clone(&httpd_bandwidth),  rt_token.clone()));
     rt.spawn(watch::init(pb.clone(), rt_token.clone()));
 
@@ -57,6 +60,7 @@ pub fn start_multi_thread(
     let spawn_down = rt.spawn(
         downloader::down(
             Arc::clone(&httpd_bandwidth),
+            Arc::clone(&httpd_jobs),
             Arc::clone(&client_down),
             Arc::clone(&client_sign))
     );

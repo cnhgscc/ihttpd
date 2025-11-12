@@ -1,8 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::Notify;
-use tokio::sync::{Semaphore};
-
 
 
 #[derive(Debug)]
@@ -11,7 +9,6 @@ pub struct Bandwidth {
     period_used: AtomicU64, // 已经使用的字节数
 
     notify: Notify,
-    semaphore: Semaphore,
 }
 
 impl Bandwidth {
@@ -20,7 +17,6 @@ impl Bandwidth {
             max_bs,
             period_used: AtomicU64::new(0),
             notify: Notify::new(),
-            semaphore: Semaphore::new(30),
         };
         tracing::info!("Bandwidth init: {}", max_bs);
         Arc::new(bw)
@@ -37,7 +33,6 @@ impl Bandwidth {
     }
 
     pub async fn permit(&self, desired_bytes: u64) -> Result<u64, Box<dyn std::error::Error>>{
-        let _permit = self.semaphore.acquire().await?;
         let start = tokio::time::Instant::now();
 
         let mut loop_count = 0;

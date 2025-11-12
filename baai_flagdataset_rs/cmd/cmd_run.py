@@ -8,6 +8,8 @@ def with_cmdargs():
     subparsers = parser.add_subparsers(dest='command')
 
     init_parser = subparsers.add_parser('init', help='init', parents=[root_parser])
+    init_parser.add_argument('--network', type=str, default="private", help='network')
+    init_parser.add_argument('--bandwidth', type=int, default="100", help='bandwidth')
     init_parser.set_defaults(func=init_with_cmdargs)
 
     cmd_args = parser.parse_args()
@@ -33,17 +35,17 @@ def init_with_cmdargs(cmd_args):
 
         baai_print.print_figlet()
 
-
         use_path = pathlib.Path(".").absolute().__str__()
         presign = "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign"
-        network = "private"
+        network = cmd_args.network
+        bandwidth = cmd_args.bandwidth
 
-        print("baai-flagdataset: 正在初始化...")
         print(f"baai-flagdataset: use_path, {use_path}")
         print(f"baai-flagdataset: presign, {presign}")
         print(f"baai-flagdataset: network, {network}")
+        print(f"baai-flagdataset: bandwidth, {bandwidth}")
 
-        multi_download(use_path, presign, network,100)
+        multi_download(use_path, presign, network,bandwidth)
 
     except Exception as e:
         print(e)
