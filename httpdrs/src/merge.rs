@@ -1,14 +1,16 @@
 use std::sync::Arc;
+
 use tokio::fs;
-use tokio::sync::{mpsc, Semaphore};
+use tokio::sync::mpsc;
 use tokio::time::Instant;
+
 use httpdrs_core::httpd::HttpdMetaReader;
 
 
 /// 获取队列文件进行合并
 pub async fn init(mut mpsc_merge: mpsc::Receiver<(Arc<HttpdMetaReader>, u64, String, String)>) {
 
-    let (tx_merge, mut rx_merge) = mpsc::channel::<u64>(1500);
+    let (tx_merge, mut rx_merge) = mpsc::channel::<u64>(3000);
 
     let stop = tokio::spawn(async move {
         while let Some(total_parts) = rx_merge.recv().await {
