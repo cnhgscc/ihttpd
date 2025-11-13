@@ -40,7 +40,7 @@ pub(crate) async fn init(cancel: CancellationToken) {
                 let mut require_bytes = 0;
                 let mut require_count = 0;
                 for raw_result in csv_reader.records() {
-                    tracing::info!("init reading: {}, {:?}", meta_path, raw_result);
+                    tracing::debug!("init reading: {}, {:?}", meta_path, raw_result);
                     let raw_line = raw_result.unwrap();
                     let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
                     require_count += 1;
