@@ -10,7 +10,7 @@ fn multi_download(
     max_bandwidth: u64,
     max_parallel: u64,
 ) -> PyResult<()> {
-    logger::try_logger_init(format!("{}/log", use_loc).as_str());
+    logger::try_logger_init(format!("{}/logs", use_loc).as_str());
     runtime::start_multi_thread(
         max_bandwidth,
         max_parallel as usize,
