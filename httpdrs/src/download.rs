@@ -138,7 +138,6 @@ pub async fn download_file(
     // 文件下载完成，计数加1
     RUNTIME.lock().unwrap().download_count += 1;
 
-
     // TODO: test 需要合并分片的，下载完毕触发合并
     if total_parts > 1 && completed_parts == total_parts {
         tx_merge

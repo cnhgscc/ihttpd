@@ -42,16 +42,15 @@ pub async fn download_part(
         _ => presign_url,
     };
 
-
-    tracing::info!("download_part, total_parts: {}, presign_url: {}", total_parts, presign_url);
+    tracing::info!(
+        "download_part, total_parts: {}, presign_url: {}",
+        total_parts,
+        presign_url
+    );
 
     let path_save = match total_parts {
-        1 => {
-            reader_ref.local_absolute_path_str(data_path)
-        }
-        _ => {
-            reader_ref.local_part_path(data_path, idx_part, temp_path)
-        }
+        1 => reader_ref.local_absolute_path_str(data_path),
+        _ => reader_ref.local_part_path(data_path, idx_part, temp_path),
     };
 
     let range = format!("bytes={}-{}", start_pos, end_pos);
