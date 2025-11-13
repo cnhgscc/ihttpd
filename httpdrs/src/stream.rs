@@ -19,7 +19,7 @@ pub async fn download_part(
     idx_part: u64,
     start_pos: u64,
     end_pos: u64,
-    _part_size: u64,
+    total_parts: u64,
     sign: String,
     data_path: &str,
     temp_path: &str,
@@ -42,7 +42,18 @@ pub async fn download_part(
         _ => presign_url,
     };
 
-    let part_path = reader_ref.local_part_path(data_path, idx_part, temp_path);
+
+    tracing::info!("download_part, total_parts: {}, presign_url: {}", total_parts, presign_url);
+
+    let path_save = match total_parts {
+        1 => {
+            reader_ref.local_absolute_path_str(data_path)
+        }
+        _ => {
+            reader_ref.local_part_path(data_path, idx_part, temp_path)
+        }
+    };
+
     let range = format!("bytes={}-{}", start_pos, end_pos);
     tracing::debug!(
         "download_part, presign: {}, use: {:?}",
@@ -99,12 +110,12 @@ pub async fn download_part(
         }
     };
 
-    if let Some(parent) = std::path::Path::new(&part_path).parent() {
+    if let Some(parent) = std::path::Path::new(&path_save).parent() {
         if !parent.exists() {
             fs::create_dir_all(parent).await?;
         }
     }
-    let mut file = match fs::File::create(part_path.clone()).await {
+    let mut file = match fs::File::create(path_save.clone()).await {
         Ok(file) => file,
         Err(err) => {
             return Err(format!("download_err, file create err, {:?}", err).into());

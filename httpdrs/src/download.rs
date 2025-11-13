@@ -7,7 +7,7 @@ use tokio::sync::{Semaphore, mpsc};
 use tokio::time::Instant;
 
 use crate::stats::RUNTIME;
-use crate::stream::download_part;
+use crate::stream;
 
 pub async fn download_file(
     bandwidth: Arc<Bandwidth>,
@@ -93,14 +93,14 @@ pub async fn download_file(
                 tracing::info!("download_jobs: available {}", jobs_count);
             }
 
-            let (download_len, download_signal) = match download_part(
+            let (download_len, download_signal) = match stream::download_part(
                 client_down_span,
                 client_sign_span,
                 reader_,
                 idx_part,
                 part_start,
                 part_end,
-                part_size,
+                total_parts,
                 sign_,
                 data_path_.as_str(),
                 temp_path_.as_str(),
@@ -138,8 +138,9 @@ pub async fn download_file(
     // 文件下载完成，计数加1
     RUNTIME.lock().unwrap().download_count += 1;
 
-    // 下载完毕触发合并
-    if completed_parts == total_parts {
+
+    // TODO: test 需要合并分片的，下载完毕触发合并
+    if total_parts > 1 && completed_parts == total_parts {
         tx_merge
             .send((
                 Arc::clone(&reader_merge),
