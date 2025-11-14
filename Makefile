@@ -4,10 +4,12 @@ clippy:
 
 .PHONY: build-dev  ## Build the development version of the package
 build-dev:
+	cargo clippy -- -D warnings
 	maturin develop
 
 .PHONY: build-release  ## Build the release version of the package
 build-prd:
+	cargo clippy -- -D warnings
 	maturin develop --release
 
 httpd:

@@ -4,7 +4,6 @@ use indicatif::HumanBytes;
 use reqwest::Client;
 use reqwest::header::RANGE;
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
 use tokio::time::Instant;
 
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
@@ -35,27 +34,17 @@ pub async fn download_part(
 ) -> Result<u128, Box<dyn std::error::Error>> {
     let start = Instant::now();
 
-    let presign_url = match presign::read(params.sign.clone(), client_sign).await {
-        Ok(presign_url) => presign_url,
-        Err(err) => {
+    let presign_url = presign::read(params.sign.clone(), client_sign)
+        .await
+        .map_err(|err| {
             tracing::error!("download_err, presign err: {}", err);
-            return Err(format!("download_err, presign err: {}", err).into());
-        }
-    };
+            format!("download_err, presign err: {}", err)
+        })?;
 
-    let presign_url = match presign_url.as_str() {
-        "" => {
-            tracing::error!("download_err, presign_url is empty");
-            return Err("download_err, presign_url is empty".into());
-        }
-        _ => presign_url,
-    };
-
-    tracing::info!(
-        "download_part, total_parts: {}, presign_url: {}",
-        params.total_parts,
-        presign_url
-    );
+    if presign_url.is_empty() {
+        tracing::error!("download_err, presign_url is empty");
+        return Err("download_err, presign_url is empty".into());
+    }
 
     let path_save = match params.total_parts {
         1 => reader_ref.local_absolute_path_str(&config.data_path),
@@ -63,11 +52,6 @@ pub async fn download_part(
     };
 
     let range = format!("bytes={}-{}", params.start_pos, params.end_pos);
-    tracing::debug!(
-        "download_part, presign: {}, use: {:?}",
-        presign_url,
-        start.elapsed()
-    );
 
     let max_retries = config.max_retries;
     let mut retry_count = 0;
@@ -116,31 +100,22 @@ pub async fn download_part(
     };
 
     let resp_status = resp_part.status();
-    let resp_byte = match resp_part.bytes().await.ok() {
-        Some(resp_bytes) => resp_bytes,
-        None => {
-            tracing::error!("download_part, to bytes err, when status {}", resp_status);
-            return Err("download_err, to bytes err".into());
-        }
-    };
+    let resp_byte = resp_part.bytes().await.map_err(|err| {
+        tracing::error!(
+            "download_part, to bytes err: {}, when status {}",
+            err,
+            resp_status
+        );
+        "download_err, to bytes err"
+    })?;
 
     if let Some(parent) = std::path::Path::new(&path_save).parent() {
         fs::create_dir_all(parent).await?;
     }
-
-    let mut file = match fs::File::create(path_save.clone()).await {
-        Ok(file) => file,
-        Err(err) => {
-            return Err(format!("download_err, file create err, {:?}", err).into());
-        }
-    };
-
-    let resp_len = match file.write_all(&resp_byte).await {
-        Ok(_) => resp_byte.len(),
-        Err(err) => {
-            return Err(format!("download_err, write_all err: {}", err).into());
-        }
-    };
+    tokio::fs::write(path_save.clone(), &resp_byte)
+        .await
+        .map_err(|err| format!("download_err, file write err: {}", err))?;
+    let resp_len = resp_byte.len();
 
     let end_duration = start.elapsed();
     let use_ms = end_duration.as_millis();
