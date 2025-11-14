@@ -7,6 +7,7 @@ pub async fn read_meta(
     meta_list: String,
     tx_meta: mpsc::Sender<String>,
     stop_meta: CancellationToken,
+    flag_status: u64,
 ) {
     loop {
         if stop_meta.is_cancelled() {
@@ -31,10 +32,10 @@ pub async fn read_meta(
             {
                 let mut meta_map = META.lock().unwrap();
                 let flag = *meta_map.get(trimmed_line).unwrap_or(&0);
-                if flag & 1 == 1 {
+                if flag & flag_status == flag_status {
                     continue;
                 }
-                meta_map.insert(trimmed_line.to_string(), 1); // 设置为初始状态
+                meta_map.insert(trimmed_line.to_string(), flag | flag_status);
             }
 
             tx_meta_.send(trimmed_line.to_string()).await.unwrap();

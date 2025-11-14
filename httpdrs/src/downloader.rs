@@ -1,14 +1,16 @@
 use std::sync::Arc;
 
 use csv::Reader;
-use httpdrs_core::httpd;
-use httpdrs_core::httpd::Bandwidth;
-use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use reqwest::Client;
 use tokio::sync::{Semaphore, mpsc};
 use tokio_util::sync::CancellationToken;
 
+use httpdrs_core::httpd;
+use httpdrs_core::httpd::Bandwidth;
+use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
+
 use crate::download::download_file;
+use crate::meta;
 use crate::stats::RUNTIME;
 
 // 下载流程
@@ -22,18 +24,26 @@ pub(crate) async fn down(
 ) {
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
     let data_path = RUNTIME.lock().unwrap().data_path.clone();
-    let csv_paths = std::fs::read_dir(meta_path.as_str()).unwrap();
+    let temp_path = RUNTIME.lock().unwrap().temp_path.clone();
+
+    let meta_list = format!("{}/meta.list", temp_path);
+    while let Err(_) = std::fs::metadata(&meta_list) {
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
+
+    let (tx_meta, mut rx_meta) = mpsc::channel::<String>(100);
+    tokio::spawn(meta::read_meta(meta_list, tx_meta, cancel.clone(), 2));
 
     // 获取未下载的文件
-    // meta 文件并发读取量为 10
     let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(1);
 
+    let stop_down = cancel.clone();
     let stop = tokio::spawn(async move {
         // 文件下载并发控制10000, 主要受限于存储的QPS
         let semaphore = Arc::new(Semaphore::new(10000));
         let chunk_size = 1024 * 1024 * 5;
         while let Some((_meta_path, sign, size)) = rx_read.recv().await {
-            if cancel.is_cancelled() {
+            if stop_down.is_cancelled() {
                 // TODO: 停止下载文件
                 break;
             }
@@ -87,14 +97,18 @@ pub(crate) async fn down(
         }
     });
 
+    let stop_read = cancel.clone();
     tokio::spawn(async move {
-        for csv_path in csv_paths {
+        while let Some(meta_name) = rx_meta.recv().await {
+            if stop_read.is_cancelled() {
+                break;
+            }
             let tx_sender = tx_read.clone();
             let data_path = data_path.clone();
-            tokio::spawn(async move {
-                let csv_meta_path = csv_path.unwrap().path().to_string_lossy().to_string();
-                let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
+            let csv_meta_path = format!("{}/{}", meta_path, meta_name);
 
+            tokio::spawn(async move {
+                let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
                 for raw_result in csv_reader.records() {
                     let raw_line = raw_result.unwrap();
                     let sign = raw_line.get(0).unwrap().to_string();
@@ -102,7 +116,6 @@ pub(crate) async fn down(
                     let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
                     if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()) {
                         if reader_size == size {
-                            // TODO: 完成下载的文件
                             let mut rt = RUNTIME.lock().unwrap();
                             rt.completed_bytes += size;
                             rt.completed_count += 1;

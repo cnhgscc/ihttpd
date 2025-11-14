@@ -18,7 +18,7 @@ pub(crate) async fn init(cancel: CancellationToken) {
     }
 
     let (tx_meta, mut rx_meta) = mpsc::channel::<String>(100);
-    tokio::spawn(meta::read_meta(meta_list, tx_meta, cancel.clone()));
+    tokio::spawn(meta::read_meta(meta_list, tx_meta, cancel.clone(), 1));
 
     let (tx, mut rx) = mpsc::channel::<(String, u64, u64)>(2);
 
