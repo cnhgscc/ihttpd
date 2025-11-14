@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
-use crate::merge::{MergeMessage, MergeSender};
-use crate::stats::RUNTIME;
-use crate::stream;
-use httpdrs_core::httpd;
-use httpdrs_core::httpd::{Bandwidth, SignatureClient};
 use reqwest::Client;
 use tokio::sync::{Semaphore, mpsc};
 use tokio::time::Instant;
+
+use httpdrs_core::httpd;
+use httpdrs_core::httpd::{Bandwidth, SignatureClient};
+
+use crate::merge::{MergeMessage, MergeSender};
+use crate::stats::RUNTIME;
+use crate::stream;
 
 pub struct DownloadFileConfig {
     pub sign: String,
@@ -20,7 +22,7 @@ pub async fn download_file(
     jobs: Arc<Semaphore>,
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
-    tx_merge: Arc<MergeSender>,
+    merge_sender: Arc<MergeSender>,
     config: DownloadFileConfig,
 ) -> Result<(String, tokio::time::Duration), Box<dyn std::error::Error>> {
     let start = Instant::now();
@@ -91,8 +93,7 @@ pub async fn download_file(
         let client_down_span = Arc::clone(&client_down);
         let client_sign_span = Arc::clone(&client_sign);
 
-        // TODO: remove permit
-        let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
+        let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载\
         tokio::spawn(async move {
             let _permit = jobs_.acquire().await.unwrap(); // 下载器并发控制
             {
@@ -146,13 +147,10 @@ pub async fn download_file(
             download_signal
         );
     }
-
-    // 文件下载完成，计数加1
     RUNTIME.lock().unwrap().download_count += 1;
 
-    // TODO: test 需要合并分片的，下载完毕触发合并
     if total_parts > 1 && completed_parts == total_parts {
-        tx_merge
+        merge_sender
             .send(MergeMessage {
                 reader: Arc::clone(&reader_merge),
                 total_parts,

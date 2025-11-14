@@ -13,6 +13,10 @@ def with_cmdargs():
     init_parser.add_argument('--parallel', type=int, default="200", help='parallel')
     init_parser.set_defaults(func=init_with_cmdargs)
 
+    # merge
+    merge_parser = subparsers.add_parser('merge', help='merge', parents=[root_parser])
+    merge_parser.set_defaults(func=merge_with_cmdargs)
+
     cmd_args = parser.parse_args()
     if hasattr(cmd_args, 'func'):
         try:
@@ -53,3 +57,22 @@ def init_with_cmdargs(cmd_args):
     except Exception as e:
         print(e)
 
+
+def merge_with_cmdargs(_cmd_args):
+    import pathlib
+
+
+    use_path = pathlib.Path(".")
+    meta_path = use_path / "meta"
+    temp_path = use_path / "temp"
+    list_path = temp_path / "meta.list"
+
+    list_sets = set()
+    for meta_bin in meta_path.glob("*.bin"):
+        list_sets.add(meta_bin.name)
+
+    with open(list_path, "w") as f:
+        f.write("---start---\n")
+        for list_set in list_sets:
+            f.write(list_set + "\n")
+        f.write("---end---")

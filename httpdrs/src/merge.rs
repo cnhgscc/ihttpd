@@ -19,7 +19,7 @@ pub type MergeSender = mpsc::Sender<MergeMessage>;
 pub type MergeReceiver = mpsc::Receiver<MergeMessage>;
 
 /// 获取队列文件进行合并
-pub async fn init(mut mpsc_merge: MergeReceiver, cancel: CancellationToken) {
+pub async fn init(mut merge_receiver: MergeReceiver, cancel: CancellationToken) {
     let (tx_merge, mut rx_merge) = mpsc::channel::<u64>(3000);
 
     let stop = tokio::spawn(async move {
@@ -31,7 +31,7 @@ pub async fn init(mut mpsc_merge: MergeReceiver, cancel: CancellationToken) {
         }
     });
 
-    while let Some(message) = mpsc_merge.recv().await {
+    while let Some(message) = merge_receiver.recv().await {
         let tx_merge_ = tx_merge.clone();
         tokio::spawn(async move {
             match download_merge(
@@ -120,9 +120,6 @@ pub async fn download_merge(
         let part_path = reader.local_part_path(data_path, idx_part, temp_path);
         tokio::fs::remove_file(part_path).await.unwrap_or(());
     }
-
-    // TODO: 放到分片下载完成处理
-    // RUNTIME.lock().unwrap().download_count += 1;
 
     Ok(start.elapsed())
 }
