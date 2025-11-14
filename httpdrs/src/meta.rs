@@ -9,10 +9,13 @@ pub async fn read_meta(
     stop_meta: CancellationToken,
     flag_status: u64,
 ) {
+    let mut loop_count = 0;
     loop {
         if stop_meta.is_cancelled() {
             break;
         }
+
+        loop_count += 1;
 
         let meta_content = std::fs::read_to_string(&meta_list).unwrap();
         let tx_meta_ = tx_meta.clone();
@@ -47,4 +50,6 @@ pub async fn read_meta(
 
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
+
+    tracing::info!("download_read: flag: {}, loop: {}", flag_status, loop_count);
 }
