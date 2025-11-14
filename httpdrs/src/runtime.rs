@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::core::{httpd, pbar};
-use crate::stats::RUNTIME;
+use crate::stats::{META, RUNTIME};
 use crate::{bandwidth, downloader, merge, reader, watch};
 use futures::future::join_all;
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
@@ -114,14 +114,17 @@ pub fn start_multi_thread(
                 ));
 
                 pb.finish();
+
             }
             _ = signal_future => {
                 rt_token.cancel();
-                tracing::info!("Runtime shutdown: baai-flagdataset-rs: {:?}", RUNTIME);
             }
         }
     });
 
+    META.lock().unwrap().iter().for_each(|(k, v)| {
+        tracing::info!("download_meta: {} = {}", k, v);
+    });
     rt.shutdown_background();
 
     Ok(())

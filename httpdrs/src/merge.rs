@@ -48,10 +48,10 @@ pub async fn init(
     // 等待所有任务完成的通知
     match stop.await {
         Ok(_) => {
-            tracing::info!("all merge tasks completed");
+            tracing::info!("download_merge: tasks completed");
         }
         Err(e) => {
-            tracing::error!("merge task monitoring failed: {}", e);
+            tracing::error!("download_merge: merge task monitoring failed: {}", e);
         }
     }
 }
