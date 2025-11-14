@@ -47,6 +47,7 @@ pub async fn download_file(
 
     if let Some(local_size) = httpd::check_file_meta(local_path.clone()) {
         if local_size == config.require_size {
+            RUNTIME.lock().unwrap().completed_bytes += local_size;
             return Ok((
                 reader_ref
                     .local_relative_path()

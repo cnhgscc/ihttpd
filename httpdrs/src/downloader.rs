@@ -36,7 +36,7 @@ pub(crate) async fn down(
     tokio::spawn(meta::read_meta(meta_list, tx_meta, cancel.clone(), 2));
 
     // 获取未下载的文件
-    let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(1);
+    let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(5);
 
     let stop_down = cancel.clone();
     let stop = tokio::spawn(async move {
