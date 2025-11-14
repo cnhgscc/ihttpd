@@ -3,8 +3,9 @@ use std::sync::Arc;
 use indicatif::HumanBytes;
 use reqwest::Client;
 use reqwest::header::RANGE;
-use tokio::fs;
+use tokio::{fs, time};
 use tokio::time::Instant;
+use tokio_util::bytes::Bytes;
 
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 
@@ -31,20 +32,22 @@ pub async fn download_part(
     reader_ref: Arc<HttpdMetaReader>,
     params: DownloadPartParams,
     config: DownloadConfig,
-) -> Result<u128, Box<dyn std::error::Error>> {
+) -> Option<usize> {
     let start = Instant::now();
 
-    let presign_url = presign::read(params.sign.clone(), client_sign)
-        .await
-        .map_err(|err| {
+    let presign_url = match presign::read(params.sign.clone(), client_sign).await{
+        Ok(presign_url) => {
+            if presign_url.is_empty() {
+                tracing::error!("download_err, presign_url is empty");
+                return  None
+            }
+            presign_url
+        },
+        Err(err) => {
             tracing::error!("download_err, presign err: {}", err);
-            format!("download_err, presign err: {}", err)
-        })?;
-
-    if presign_url.is_empty() {
-        tracing::error!("download_err, presign_url is empty");
-        return Err("download_err, presign_url is empty".into());
-    }
+            return None
+        }
+    };
 
     let path_save = match params.total_parts {
         1 => reader_ref.local_absolute_path_str(&config.data_path),
@@ -53,73 +56,44 @@ pub async fn download_part(
 
     let range = format!("bytes={}-{}", params.start_pos, params.end_pos);
 
-    let max_retries = config.max_retries;
-    let mut retry_count = 0;
-    let resp_part = loop {
-        let resp_part = client_down
-            .get(presign_url.clone())
-            .header(RANGE, range.clone())
-            .send()
-            .await;
-        match resp_part {
-            Ok(resp_part) => match resp_part.status().as_u16() {
-                200..=299 => {
-                    break resp_part;
-                }
-                _ => {
-                    retry_count += 1;
-                    if retry_count >= max_retries {
-                        return Err(format!(
-                            "download_err, resp status is {}, {}",
-                            resp_part.status(),
-                            presign_url
-                        )
-                        .into());
-                    }
-                    tokio::time::sleep(tokio::time::Duration::from_millis(
-                        (100 * retry_count) as u64,
-                    ))
-                    .await;
-                }
-            },
-            Err(err) => {
+    let mut retry_count  = 0;
+    let resp_bytes = loop {
+        let resp_range = stream_request_range(Arc::clone(&client_down), &presign_url, &range).await;
+        match resp_range {
+            Some(resp_part) => break Some(resp_part),
+            None => {
                 retry_count += 1;
-                if retry_count >= max_retries {
-                    return Err(format!(
-                        "download_err, reqwest_retry: {}  err: {}",
-                        retry_count, err
-                    )
-                    .into());
+                if retry_count > config.max_retries {
+                    tracing::error!("download_retry, retry max count: {}", retry_count);
+                    break None
                 }
-                tokio::time::sleep(tokio::time::Duration::from_millis(
-                    (2000 * retry_count) as u64,
-                ))
-                .await;
+                time::sleep(time::Duration::from_secs(retry_count as u64)).await;
             }
         }
-    };
-
-    let resp_status = resp_part.status();
-    let resp_byte = resp_part.bytes().await.map_err(|err| {
-        tracing::error!(
-            "download_part, to bytes err: {}, when status {}",
-            err,
-            resp_status
-        );
-        "download_err, to bytes err"
-    })?;
+    }?;
 
     if let Some(parent) = std::path::Path::new(&path_save).parent() {
-        fs::create_dir_all(parent).await?;
+        match fs::create_dir_all(parent).await{
+            Ok(_) => {}
+            Err(err) => {
+                tracing::error!("download_err, create dir err: {}", err);
+                return None
+            }
+        }
     }
-    tokio::fs::write(path_save.clone(), &resp_byte)
-        .await
-        .map_err(|err| format!("download_err, file write err: {}", err))?;
-    let resp_len = resp_byte.len();
+    let resp_len = resp_bytes.len();
+    match fs::write(path_save.clone(), &resp_bytes).await {
+        Ok(_) => {
+        }
+        Err(err) => {
+            tracing::error!("download_err, save err: {}", err);
+            return None
+        }
+    }
 
     let end_duration = start.elapsed();
-    let use_ms = end_duration.as_millis();
-    let download_speed = resp_len / use_ms as usize * 1000;
+    let use_sec = end_duration.as_secs();
+    let download_speed = resp_len / use_sec as usize;
     let download_speed_str = HumanBytes(download_speed as u64);
 
     tracing::info!(
@@ -132,5 +106,42 @@ pub async fn download_part(
         params.start_pos,
         params.end_pos
     );
-    Ok(resp_len as u128)
+    Some(resp_len)
+}
+
+
+pub async fn stream_request_range(
+    client: Arc<Client>,
+    url: &str,
+    range: &str
+) -> Option<Bytes> {
+
+    let rs_send =  client.get(url).header(RANGE, range).send().await;
+    let resp = match rs_send {
+        Ok(resp) => {
+            resp
+        },
+        Err(err) => {
+            tracing::error!("stream_request, reqwest err: {}", err);
+            return None
+        }
+    };
+
+    if !resp.status().is_success(){
+        tracing::error!("stream_request, reqwest status: {}", resp.status());
+        return None
+    }
+
+    let rs_bytes = resp.bytes().await;
+    let bytes = match rs_bytes {
+        Ok(bytes) => {
+            bytes
+        },
+        Err(err) => {
+            tracing::error!("stream_request, reqwest read bytes err: {}", err);
+            return None
+        }
+    };
+
+    Some(bytes)
 }

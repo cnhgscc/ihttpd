@@ -68,7 +68,7 @@ pub async fn download_file(
     let total_parts = require_size.div_ceil(chunk_size);
 
     // 每个文件都创建一下分片下载的最大检查队列
-    let (tx_part, mut rx_part) = mpsc::channel::<(u64, u128, i32)>(100);
+    let (tx_part, mut rx_part) = mpsc::channel::<(u64, usize, i32)>(100);
     let reader_merge = Arc::clone(&reader_ref);
 
     tracing::debug!("download, parts: {}, {}", total_parts, reader_ref);
@@ -121,9 +121,8 @@ pub async fn download_file(
             )
             .await
             {
-                Ok(resp_len) => (resp_len, 1),
-                Err(e) => {
-                    tracing::error!("download_part, error: {}, part: {:?}", e, idx_part);
+                Some(resp_len) => (resp_len, 1),
+                None => {
                     (0, 0)
                 }
             };
