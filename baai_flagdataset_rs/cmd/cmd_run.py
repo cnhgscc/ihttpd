@@ -61,6 +61,10 @@ def init_with_cmdargs(cmd_args):
 def merge_with_cmdargs(_cmd_args):
     import pathlib
 
+    from ..baai_helper import baai_print
+
+    baai_print.print_figlet()
+
 
     use_path = pathlib.Path(".")
     meta_path = use_path / "meta"
@@ -76,3 +80,5 @@ def merge_with_cmdargs(_cmd_args):
         for list_set in list_sets:
             f.write(list_set + "\n")
         f.write("---end---")
+
+    print(f"baai-flagdataset, merge: {list_path.absolute().__str__()}, count: {len(list_sets)}")
