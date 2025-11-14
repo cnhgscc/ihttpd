@@ -2,10 +2,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::core::{httpd, pbar};
+use crate::merge::MergeMessage;
 use crate::stats::{META, RUNTIME};
 use crate::{bandwidth, downloader, merge, reader, watch};
 use futures::future::join_all;
-use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
+use httpdrs_core::httpd::SignatureClient;
 use reqwest::Client;
 use tokio::runtime;
 use tokio::sync::{Semaphore, mpsc};
@@ -47,7 +48,7 @@ pub fn start_multi_thread(
     let httpd_jobs = Arc::new(Semaphore::new(max_parallel)); // 下载器并发控制
 
     // 处理合并的队列
-    let (tx_merge, rx_merge) = mpsc::channel::<(Arc<HttpdMetaReader>, u64, String, String)>(100);
+    let (tx_merge, rx_merge) = mpsc::channel::<MergeMessage>(100);
 
     tracing::info!("Runtime initialized: baai-flagdataset-rs");
 

@@ -1,4 +1,6 @@
-
+.PHONY: clippy
+clippy:
+	cargo clippy -- -D warnings  # ← 严格模式，用于 CI
 
 .PHONY: build-dev  ## Build the development version of the package
 build-dev:

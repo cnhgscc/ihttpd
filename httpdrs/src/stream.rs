@@ -11,22 +11,31 @@ use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 
 use crate::presign;
 
+pub struct DownloadConfig {
+    pub data_path: String,
+    pub temp_path: String,
+    pub max_retries: u32,
+}
+
+pub struct DownloadPartParams {
+    pub idx_part: u64,
+    pub start_pos: u64,
+    pub end_pos: u64,
+    pub total_parts: u64,
+    pub sign: String,
+}
+
 /// download_part 请求网络获取分片数据
 pub async fn download_part(
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
     reader_ref: Arc<HttpdMetaReader>,
-    idx_part: u64,
-    start_pos: u64,
-    end_pos: u64,
-    total_parts: u64,
-    sign: String,
-    data_path: &str,
-    temp_path: &str,
+    params: DownloadPartParams,
+    config: DownloadConfig,
 ) -> Result<u128, Box<dyn std::error::Error>> {
     let start = Instant::now();
 
-    let presign_url = match presign::read(sign.clone(), client_sign).await {
+    let presign_url = match presign::read(params.sign.clone(), client_sign).await {
         Ok(presign_url) => presign_url,
         Err(err) => {
             tracing::error!("download_err, presign err: {}", err);
@@ -44,23 +53,23 @@ pub async fn download_part(
 
     tracing::info!(
         "download_part, total_parts: {}, presign_url: {}",
-        total_parts,
+        params.total_parts,
         presign_url
     );
 
-    let path_save = match total_parts {
-        1 => reader_ref.local_absolute_path_str(data_path),
-        _ => reader_ref.local_part_path(data_path, idx_part, temp_path),
+    let path_save = match params.total_parts {
+        1 => reader_ref.local_absolute_path_str(&config.data_path),
+        _ => reader_ref.local_part_path(&config.data_path, params.idx_part, &config.temp_path),
     };
 
-    let range = format!("bytes={}-{}", start_pos, end_pos);
+    let range = format!("bytes={}-{}", params.start_pos, params.end_pos);
     tracing::debug!(
         "download_part, presign: {}, use: {:?}",
         presign_url,
         start.elapsed()
     );
 
-    let max_retries = 20;
+    let max_retries = config.max_retries;
     let mut retry_count = 0;
     let resp_part = loop {
         let resp_part = client_down
@@ -83,7 +92,10 @@ pub async fn download_part(
                         )
                         .into());
                     }
-                    tokio::time::sleep(tokio::time::Duration::from_millis(100 * retry_count)).await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(
+                        (100 * retry_count) as u64,
+                    ))
+                    .await;
                 }
             },
             Err(err) => {
@@ -95,7 +107,10 @@ pub async fn download_part(
                     )
                     .into());
                 }
-                tokio::time::sleep(tokio::time::Duration::from_millis(2000 * retry_count)).await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(
+                    (2000 * retry_count) as u64,
+                ))
+                .await;
             }
         }
     };
@@ -110,10 +125,9 @@ pub async fn download_part(
     };
 
     if let Some(parent) = std::path::Path::new(&path_save).parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).await?;
-        }
+        fs::create_dir_all(parent).await?;
     }
+
     let mut file = match fs::File::create(path_save.clone()).await {
         Ok(file) => file,
         Err(err) => {
@@ -139,9 +153,9 @@ pub async fn download_part(
         resp_len,
         download_speed_str,
         retry_count,
-        idx_part,
-        start_pos,
-        end_pos
+        params.idx_part,
+        params.start_pos,
+        params.end_pos
     );
     Ok(resp_len as u128)
 }

@@ -1,25 +1,32 @@
 use std::sync::Arc;
 
+use crate::merge::{MergeMessage, MergeSender};
+use crate::stats::RUNTIME;
+use crate::stream;
 use httpdrs_core::httpd;
-use httpdrs_core::httpd::{Bandwidth, HttpdMetaReader, SignatureClient};
+use httpdrs_core::httpd::{Bandwidth, SignatureClient};
 use reqwest::Client;
 use tokio::sync::{Semaphore, mpsc};
 use tokio::time::Instant;
 
-use crate::stats::RUNTIME;
-use crate::stream;
+pub struct DownloadFileConfig {
+    pub sign: String,
+    pub require_size: u64,
+    pub chunk_size: u64,
+}
 
 pub async fn download_file(
     bandwidth: Arc<Bandwidth>,
     jobs: Arc<Semaphore>,
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
-    tx_merge: Arc<mpsc::Sender<(Arc<HttpdMetaReader>, u64, String, String)>>,
-    sign: String,
-    require_size: u64,
-    chunk_size: u64,
+    tx_merge: Arc<MergeSender>,
+    config: DownloadFileConfig,
 ) -> Result<(String, tokio::time::Duration), Box<dyn std::error::Error>> {
     let start = Instant::now();
+    let require_size = config.require_size;
+    let chunk_size = config.chunk_size;
+    let sign = config.sign;
 
     let data_path = Arc::new({
         RUNTIME.lock().unwrap().data_path.clone() // 提前获取并释放锁
@@ -37,7 +44,7 @@ pub async fn download_file(
     );
 
     if let Some(local_size) = httpd::check_file_meta(local_path.clone()) {
-        if local_size == require_size {
+        if local_size == config.require_size {
             return Ok((
                 reader_ref
                     .local_relative_path()
@@ -55,7 +62,7 @@ pub async fn download_file(
         }
     }
 
-    let total_parts = (require_size + chunk_size - 1) / chunk_size;
+    let total_parts = require_size.div_ceil(chunk_size);
 
     // 每个文件都创建一下分片下载的最大检查队列
     let (tx_part, mut rx_part) = mpsc::channel::<(u64, u128, i32)>(100);
@@ -97,13 +104,18 @@ pub async fn download_file(
                 client_down_span,
                 client_sign_span,
                 reader_,
-                idx_part,
-                part_start,
-                part_end,
-                total_parts,
-                sign_,
-                data_path_.as_str(),
-                temp_path_.as_str(),
+                stream::DownloadPartParams {
+                    idx_part,
+                    start_pos: part_start,
+                    end_pos: part_end,
+                    total_parts,
+                    sign: sign_,
+                },
+                stream::DownloadConfig {
+                    data_path: data_path_.to_string(),
+                    temp_path: temp_path_.to_string(),
+                    max_retries: 20,
+                },
             )
             .await
             {
@@ -141,12 +153,12 @@ pub async fn download_file(
     // TODO: test 需要合并分片的，下载完毕触发合并
     if total_parts > 1 && completed_parts == total_parts {
         tx_merge
-            .send((
-                Arc::clone(&reader_merge),
+            .send(MergeMessage {
+                reader: Arc::clone(&reader_merge),
                 total_parts,
-                (*data_path).clone(),
-                (*temp_path).clone(),
-            ))
+                data_path: (*data_path).clone(),
+                temp_path: (*temp_path).clone(),
+            })
             .await
             .unwrap();
     }

@@ -13,7 +13,7 @@ pub(crate) async fn init(cancel: CancellationToken) {
     let temp_path = RUNTIME.lock().unwrap().temp_path.clone();
 
     let meta_list = format!("{}/meta.list", temp_path);
-    while let Err(_) = std::fs::metadata(&meta_list) {
+    while std::fs::metadata(&meta_list).is_err() {
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 

@@ -6,11 +6,20 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
+// 或者更清晰地定义结构体
+#[derive(Debug)]
+pub struct MergeMessage {
+    pub(crate) reader: Arc<HttpdMetaReader>,
+    pub(crate) total_parts: u64,
+    pub(crate) data_path: String,
+    pub(crate) temp_path: String,
+}
+
+pub type MergeSender = mpsc::Sender<MergeMessage>;
+pub type MergeReceiver = mpsc::Receiver<MergeMessage>;
+
 /// 获取队列文件进行合并
-pub async fn init(
-    mut mpsc_merge: mpsc::Receiver<(Arc<HttpdMetaReader>, u64, String, String)>,
-    cancel: CancellationToken,
-) {
+pub async fn init(mut mpsc_merge: MergeReceiver, cancel: CancellationToken) {
     let (tx_merge, mut rx_merge) = mpsc::channel::<u64>(3000);
 
     let stop = tokio::spawn(async move {
@@ -22,14 +31,14 @@ pub async fn init(
         }
     });
 
-    while let Some((reader_merge, total_parts, data_path, temp_path)) = mpsc_merge.recv().await {
+    while let Some(message) = mpsc_merge.recv().await {
         let tx_merge_ = tx_merge.clone();
         tokio::spawn(async move {
             match download_merge(
-                Arc::clone(&reader_merge),
-                total_parts,
-                data_path.as_str(),
-                temp_path.as_str(),
+                Arc::clone(&message.reader),
+                message.total_parts,
+                message.data_path.as_str(),
+                message.temp_path.as_str(),
             )
             .await
             {
@@ -40,7 +49,7 @@ pub async fn init(
                     tracing::error!("download_merge, error: {}", e);
                 }
             };
-            tx_merge_.send(total_parts).await.unwrap();
+            tx_merge_.send(message.total_parts).await.unwrap();
         });
     }
     drop(tx_merge);
@@ -66,15 +75,15 @@ pub async fn download_merge(
     let start = Instant::now();
 
     let file_path = reader.local_absolute_path_str(data_path);
-    let _ = tokio::fs::remove_file(file_path.clone())
+
+    tokio::fs::remove_file(file_path.clone())
         .await
         .unwrap_or(());
 
     if let Some(parent) = std::path::Path::new(&file_path).parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).await?;
-        }
+        fs::create_dir_all(parent).await?;
     }
+
     let mut dest_file = match fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -109,7 +118,7 @@ pub async fn download_merge(
     }
     for idx_part in 0..chunk_nums {
         let part_path = reader.local_part_path(data_path, idx_part, temp_path);
-        let _ = tokio::fs::remove_file(part_path).await.unwrap_or(());
+        tokio::fs::remove_file(part_path).await.unwrap_or(());
     }
 
     // TODO: 放到分片下载完成处理

@@ -7,9 +7,10 @@ use tokio_util::sync::CancellationToken;
 
 use httpdrs_core::httpd;
 use httpdrs_core::httpd::Bandwidth;
-use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
+use httpdrs_core::httpd::SignatureClient;
 
-use crate::download::download_file;
+use crate::download::{DownloadFileConfig, download_file};
+use crate::merge::MergeSender;
 use crate::meta;
 use crate::stats::RUNTIME;
 
@@ -19,7 +20,7 @@ pub(crate) async fn down(
     jobs: Arc<Semaphore>,
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
-    tx_merge: Arc<mpsc::Sender<(Arc<HttpdMetaReader>, u64, String, String)>>,
+    tx_merge: Arc<MergeSender>,
     cancel: CancellationToken,
 ) {
     let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
@@ -27,7 +28,7 @@ pub(crate) async fn down(
     let temp_path = RUNTIME.lock().unwrap().temp_path.clone();
 
     let meta_list = format!("{}/meta.list", temp_path);
-    while let Err(_) = std::fs::metadata(&meta_list) {
+    while std::fs::metadata(&meta_list).is_err() {
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 
@@ -71,9 +72,11 @@ pub(crate) async fn down(
                     client_down_,
                     client_sign_,
                     tx_merge_,
-                    sign,
-                    size,
-                    chunk_size,
+                    DownloadFileConfig {
+                        sign: sign.clone(),
+                        require_size: size,
+                        chunk_size,
+                    },
                 )
                 .await
                 {
@@ -91,7 +94,9 @@ pub(crate) async fn down(
                             download_duration.as_secs()
                         );
                     }
-                    None => {}
+                    None => {
+                        tracing::info!("{} downloaded failed", download_name);
+                    }
                 }
             });
         }

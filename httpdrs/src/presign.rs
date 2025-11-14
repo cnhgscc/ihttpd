@@ -14,10 +14,7 @@ pub async fn read(
         }
     };
     if reader.code != 0 {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "status_code != 200",
-        )));
+        return Err(Box::new(std::io::Error::other("status_code != 200")));
     }
     tracing::info!("download_presign, use {:?}", start.elapsed());
     Ok(reader.data.endpoint)

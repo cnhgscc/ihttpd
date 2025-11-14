@@ -12,7 +12,6 @@ pub struct SignatureClient {
 impl SignatureClient {
     pub fn new(reader_presign: String, network: String) -> Self {
         let client = reqwest::Client::new();
-        let reader_presign = reader_presign;
         SignatureClient {
             client,
             network,
