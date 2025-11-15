@@ -19,6 +19,8 @@ pub fn start_multi_thread(
     presign_api: String,
     network: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let start = tokio::time::Instant::now();
+
     let rt = runtime::Builder::new_multi_thread()
         .worker_threads(100)
         .enable_all()
@@ -115,6 +117,24 @@ pub fn start_multi_thread(
         tracing::info!("download_meta: {} = {}", k, v);
     });
     rt.shutdown_background();
+
+    let runtime = { RUNTIME.lock().unwrap() };
+
+    pb.set_length(runtime.require_count);
+    pb.set_position(runtime.download_count + runtime.completed_count + runtime.uncompleted_count);
+    let avg_speed = 1000 * runtime.completed_bytes as u128 / (start.elapsed().as_millis() + 1);
+    let process_bytes =
+        runtime.completed_bytes + runtime.uncompleted_bytes + runtime.download_bytes;
+    pb.set_message(pbar::format(
+        runtime.require_count,
+        avg_speed as u64,
+        1.0,
+        process_bytes,
+        0,
+    ));
+
+    println!("{}", runtime);
+    println!("{:?}", start.elapsed());
 
     Ok(())
 }

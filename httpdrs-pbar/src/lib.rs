@@ -1,6 +1,6 @@
-use std::time::Duration;
 use indicatif::{HumanBytes, HumanDuration};
 use indicatif::{ProgressBar, ProgressStyle};
+use std::time::Duration;
 
 pub fn create() -> ProgressBar {
     let pbar = ProgressBar::new(0);
