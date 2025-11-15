@@ -21,6 +21,8 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                 let _start_count = last_count;
                 let start_bytes = last_bytes;
 
+                println!("=========================")
+
                 let (
                     require_bytes,
                     require_count,
