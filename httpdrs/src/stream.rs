@@ -19,11 +19,11 @@ pub struct Args {
 
 impl Args {
     pub fn new(data_path: String, temp_path: String) -> Arc<Self> {
-        let a = Args {
+        let args = Args {
             data_path,
             temp_path,
         };
-        Arc::new(a)
+        Arc::new(args)
     }
 }
 
@@ -80,8 +80,10 @@ pub async fn stream_download_range(
 ) -> Option<usize> {
     let start = Instant::now();
 
-    let presign_url = presign::read(range.sign.clone(), client_sign).await?;
     let range_path = range.path(reader_ref);
+    // TODO: 检查是否已经下载完毕
+
+    let presign_url = presign::read(range.sign.clone(), client_sign).await?;
 
     let mut retry_count = 0;
     let max_retries = 20;
@@ -156,6 +158,7 @@ pub async fn stream_request_range(client: Arc<Client>, url: &str, range: &str) -
         return None;
     }
 
+    // TODO: 这种情况的需要增加重试
     let rs_bytes = resp.bytes().await;
     let bytes = match rs_bytes {
         Ok(bytes) => bytes,
