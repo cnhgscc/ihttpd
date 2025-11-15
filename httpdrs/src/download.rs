@@ -24,6 +24,7 @@ pub async fn download_file(
     let chunk_size = request_reader.chunk_size;
     let sign = &request_reader.request_sign;
     let total_parts = request_reader.total_parts();
+    let require_size = request_reader.require_size;
 
     let data_path = Arc::new({
         RUNTIME.lock().unwrap().data_path.clone() // 提前获取并释放锁
@@ -149,6 +150,7 @@ pub async fn download_file(
                     .send(MergeMessage {
                         reader: Arc::clone(&reader_merge),
                         total_parts,
+                        total_bytes: require_size,
                         data_path: (*data_path).clone(),
                         temp_path: (*temp_path).clone(),
                     })

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use httpdrs_core::httpd::HttpdMetaReader;
 use tokio::fs;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
@@ -11,6 +12,7 @@ use tokio_util::sync::CancellationToken;
 pub struct MergeMessage {
     pub(crate) reader: Arc<HttpdMetaReader>,
     pub(crate) total_parts: u64,
+    pub(crate) total_bytes: u64,
     pub(crate) data_path: String,
     pub(crate) temp_path: String,
 }
@@ -38,6 +40,7 @@ pub async fn init(mut merge_receiver: MergeReceiver, cancel: CancellationToken) 
             match download_merge(
                 Arc::clone(&message.reader),
                 message.total_parts,
+                message.total_bytes,
                 message.data_path.as_str(),
                 message.temp_path.as_str(),
             )
@@ -69,7 +72,8 @@ pub async fn init(mut merge_receiver: MergeReceiver, cancel: CancellationToken) 
 // 合并文件
 pub async fn download_merge(
     reader: Arc<HttpdMetaReader>,
-    chunk_nums: u64,
+    total_parts: u64,
+    total_bytes: u64,
     data_path: &str,
     temp_path: &str,
 ) -> Result<tokio::time::Duration, Box<dyn std::error::Error>> {
@@ -102,7 +106,7 @@ pub async fn download_merge(
         }
     };
 
-    for idx_part in 0..chunk_nums {
+    for idx_part in 0..total_parts {
         let part_path = reader.local_part_path(data_path, idx_part, temp_path);
         let mut part_file = match fs::File::open(part_path.clone()).await {
             Ok(part_file) => part_file,
@@ -115,9 +119,44 @@ pub async fn download_merge(
                 .into());
             }
         };
-        tokio::io::copy(&mut part_file, &mut dest_file).await?;
+
+        let metadata = part_file.metadata().await?;
+        let part_size = metadata.len();
+        let chunk_size = 1024*1024*5;
+
+
+        // 最后一块
+        if idx_part == total_parts - 1 {
+            let last_part_size = total_bytes - (total_parts-1) * chunk_size;
+            if part_size > last_part_size {
+                tracing::warn!("download_merge, last_part: {}, local_part_size: {}, require_part_size: {}", idx_part,  part_size, last_part_size);
+                let mut buffer = vec![0u8; last_part_size as usize];
+                part_file.read_exact(&mut buffer).await?;
+                dest_file.write_all(&buffer).await?;
+
+                // 读取并检查多出的字节
+                let extra_bytes = part_size - last_part_size;
+                let mut extra_buffer = vec![0u8; extra_bytes as usize];
+                part_file.read_exact(&mut extra_buffer).await?;
+
+                tracing::warn!("多出的 {} 字节内容:", extra_bytes);
+                tracing::warn!("  Hex: {:?}", extra_buffer);
+                tracing::warn!("  ASCII: {:?}", String::from_utf8_lossy(&extra_buffer));
+                
+            }else {
+                tokio::io::copy(&mut part_file, &mut dest_file).await?;
+            }
+
+        }else{
+            if part_size != chunk_size {
+                tracing::warn!("download_merge, idx_part: {}, local_part_size: {}", idx_part,  part_size)
+            }
+            tokio::io::copy(&mut part_file, &mut dest_file).await?;
+        }
+
+
     }
-    for idx_part in 0..chunk_nums {
+    for idx_part in 0..total_parts {
         let part_path = reader.local_part_path(data_path, idx_part, temp_path);
         tokio::fs::remove_file(part_path).await.unwrap_or(());
     }
