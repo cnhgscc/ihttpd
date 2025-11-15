@@ -5,6 +5,7 @@ use base64::prelude::*;
 use jwt::{Claims, Header, Token};
 use rmp_serde::from_slice;
 use serde::Deserialize;
+use tokio::fs;
 
 #[derive(Debug, Deserialize)]
 pub struct HttpdMetaReader {
@@ -25,9 +26,9 @@ impl HttpdMetaReader {
         PathBuf::from(base_dir).join(self.local_relative_path())
     }
 
-    pub fn check_local_file(&self, base_dir: &str) -> Option<u64> {
+    pub async fn check_local_file(&self, base_dir: &str) -> Option<u64> {
         let path = self.local_absolute_path_str(base_dir);
-        check_file_meta(path)
+        check_file_meta(path).await
     }
 
     pub fn local_part_path(&self, base_dir: &str, part_index: u64, temp_dir: &str) -> PathBuf {
@@ -76,11 +77,20 @@ pub fn reader_parse(token: String) -> Result<HttpdMetaReader, Box<dyn std::error
     Ok(meta_reader)
 }
 
-pub fn check_file_meta(file_path: PathBuf) -> Option<u64> {
-    if file_path.is_file() {
-        std::fs::metadata(&file_path).ok().map(|meta| meta.len())
-    } else {
-        tracing::debug!("{} is not a file", file_path.display());
-        Some(0)
+pub async  fn check_file_meta(file_path: PathBuf) -> Option<u64> {
+    match fs::metadata(&file_path).await {
+        Ok(meta) => {
+            if meta.is_file() {
+                Some(meta.len())
+            } else {
+                tracing::debug!("{} is not a file", file_path.display());
+                Some(0)
+            }
+        }
+        Err(_) => {
+            tracing::debug!("Failed to get metadata for {}", file_path.display());
+            None
+        }
     }
 }
+

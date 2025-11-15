@@ -96,7 +96,7 @@ pub async fn stream_download_range(
     // 当进行分片下载时，进行断点续传检查
     if total_parts > 1
         && range_path.exists()
-        && let Some(local_size) = httpd::check_file_meta(range_path.clone())
+        && let Some(local_size) = httpd::check_file_meta(range_path.clone()).await
         && local_size == range.size()
     {
         tracing::info!(

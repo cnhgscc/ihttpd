@@ -99,7 +99,7 @@ pub(crate) async fn down(
                     let sign = raw_line.get(0).unwrap().to_string();
                     let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
                     let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
-                    if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()) {
+                    if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()).await {
                         if reader_size == size {
                             // TODO test: 断点续传的记录
                             download_bytes += size;

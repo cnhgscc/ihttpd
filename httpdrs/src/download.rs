@@ -34,7 +34,7 @@ pub async fn download_file(
     let reader_ref = Arc::new(httpd::reader_parse(sign.clone()).ok()?);
     let local_path = reader_ref.local_absolute_path_str(data_path.as_str());
 
-    if let Some(local_size) = httpd::check_file_meta(local_path.clone()) {
+    if let Some(local_size) = httpd::check_file_meta(local_path.clone()).await {
         if local_path.exists() {
             if local_size == request_reader.require_size {
                 RUNTIME.get()?.add_completed(0, local_size);
