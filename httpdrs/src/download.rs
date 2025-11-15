@@ -37,17 +37,28 @@ pub async fn download_file(
     let reader_ref = Arc::new(httpd::reader_parse(sign.clone()).ok()?);
     let local_path = reader_ref.local_absolute_path_str(data_path.as_str());
 
-    if let Some(local_size) = httpd::check_file_meta(local_path.clone())
-        && local_size == request_reader.require_size
-    {
-        RUNTIME.lock().unwrap().completed_bytes += local_size; // TODO: 计算完成字节
-        return Some((
-            reader_ref
-                .local_relative_path()
-                .to_string_lossy()
-                .to_string(),
-            start.elapsed(),
-        ));
+    if let Some(local_size) = httpd::check_file_meta(local_path.clone()) {
+        if local_path.exists() {
+            if local_size == request_reader.require_size {
+                RUNTIME.lock().unwrap().completed_bytes += local_size; // TODO: 计算完成字节
+                return Some((
+                    reader_ref
+                        .local_relative_path()
+                        .to_string_lossy()
+                        .to_string(),
+                    start.elapsed(),
+                ));
+            } else {
+                tracing::warn!(
+                    "download_check, require_size: {}, local_size: {}, local_path: {:?}",
+                    request_reader.require_size,
+                    local_size,
+                    local_path.clone()
+                );
+            }
+        } else {
+            tracing::debug!("download_proc, local_path: {:?}", local_path.clone());
+        }
     }
 
     let (tx_part, mut rx_part) = mpsc::channel::<(u64, usize, i32)>(100);
