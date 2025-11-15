@@ -9,7 +9,7 @@ use crate::stats::RUNTIME;
 pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
     let start = Instant::now();
 
-    pb.set_message(pbar::format(0, 0, 0.0, 0));
+    pb.set_message(pbar::format(0, 0, 0.0, 0, 0));
 
     let mut last_count: u64 = 0;
     let mut last_bytes: u64 = 0;
@@ -69,11 +69,18 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                 // 所有处理过的文件数量 成功+失败+断点续传
                 last_count = completed_count + uncompleted_count + download_count;
 
+                // TODO: 计算剩余时间
+                let process_bytes = completed_bytes + uncompleted_bytes + download_bytes;
+                let remaining_bytes = require_bytes - process_bytes;
+
+                let speed_avg = (process_bytes+1) as u128 * 1000 / (use_ms + 1);
+                let remaining_time = remaining_bytes as u128 / speed_avg + 1;
+
                 tracing::info!("download_watch, last_speed: {}/s", HumanBytes(last_speed));
                 pb.set_length(require_count);
                 pb.set_position(last_count);
 
-                pb.set_message(pbar::format(require_bytes, period_speed, download_percent, download_bytes + completed_bytes + uncompleted_bytes));
+                pb.set_message(pbar::format(require_bytes, period_speed, download_percent, process_bytes, remaining_time));
             }
             _ = token_bandwidth.cancelled() => {
                 break;
