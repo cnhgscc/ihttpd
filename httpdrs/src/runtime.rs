@@ -103,19 +103,7 @@ pub fn start_multi_thread(
         let event_tasks = vec![spawn_read, spawn_down, spawn_merge];
         tokio::select! {
             _ = join_all(event_tasks) => {
-                let (runtime_require_bytes, runtime_require_count, runtime_download_speed) = {
-                    let r = RUNTIME.lock().unwrap();
-                    (r.require_bytes, r.require_count, r.download_speed)
-                };
-                pb.set_message(pbar::format(
-                    runtime_require_bytes,
-                    runtime_require_count,
-                    runtime_download_speed,
-                    1.0,
-                ));
-
-                pb.finish();
-
+                tracing::info!("所有任务处理完成");
             }
             _ = signal_future => {
                 rt_token.cancel();

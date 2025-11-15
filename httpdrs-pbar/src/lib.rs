@@ -1,4 +1,4 @@
-use indicatif::{HumanBytes, HumanCount};
+use indicatif::HumanBytes;
 use indicatif::{ProgressBar, ProgressStyle};
 
 pub fn create() -> ProgressBar {
@@ -28,7 +28,7 @@ pub fn format(
     format!(
         "| {}/{} |{:.2}%|{}/s",
         download_bytes_human,
-        require_bytes_human
+        require_bytes_human,
         download_precent * 100.0,
         download_speed_human,
     )
