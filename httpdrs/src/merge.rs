@@ -122,31 +122,35 @@ pub async fn download_merge(
 
         let metadata = part_file.metadata().await?;
         let part_size = metadata.len();
-        let chunk_size = 1024*1024*5;
-
+        let chunk_size = 1024 * 1024 * 5;
 
         // 最后一块
         if idx_part == total_parts - 1 {
-            let last_part_size = total_bytes - (total_parts-1) * chunk_size;
+            let last_part_size = total_bytes - (total_parts - 1) * chunk_size;
             if part_size > last_part_size {
-                tracing::warn!("download_merge, last_part: {}, local_part_size: {}, require_part_size: {}", idx_part,  part_size, last_part_size);
+                tracing::warn!(
+                    "download_merge, last_part: {}, local_part_size: {}, require_part_size: {}",
+                    idx_part,
+                    part_size,
+                    last_part_size
+                );
                 let mut buffer = vec![0u8; last_part_size as usize];
                 part_file.read_exact(&mut buffer).await?;
                 dest_file.write_all(&buffer).await?;
-
-            }else {
+            } else {
                 tokio::io::copy(&mut part_file, &mut dest_file).await?;
             }
-
-        }else{
-            if part_size > chunk_size {
-                let mut buffer = vec![0u8; chunk_size as usize];
-                part_file.read_exact(&mut buffer).await?;
-                dest_file.write_all(&buffer).await?;
-                tracing::warn!("download_merge, idx_part: {}, local_part_size: {}", idx_part,  part_size)
-            }else {
-                tokio::io::copy(&mut part_file, &mut dest_file).await?;
-            }
+        } else if part_size > chunk_size {
+            let mut buffer = vec![0u8; chunk_size as usize];
+            part_file.read_exact(&mut buffer).await?;
+            dest_file.write_all(&buffer).await?;
+            tracing::warn!(
+                "download_merge, idx_part: {}, local_part_size: {}",
+                idx_part,
+                part_size
+            )
+        } else {
+            tokio::io::copy(&mut part_file, &mut dest_file).await?;
         }
     }
     for idx_part in 0..total_parts {

@@ -57,7 +57,7 @@ impl Range {
 
     pub fn header(&self) -> String {
         // bytes=0-10 是 11个字节，所以需要减1
-        format!("bytes={}-{}", self.start_pos, self.end_pos-1)
+        format!("bytes={}-{}", self.start_pos, self.end_pos - 1)
     }
 
     pub fn path(&self, reader: Arc<HttpdMetaReader>) -> (PathBuf, u64) {

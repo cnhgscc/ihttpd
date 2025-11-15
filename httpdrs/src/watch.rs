@@ -21,29 +21,31 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                 let _start_count = last_count;
                 let start_bytes = last_bytes;
 
-
-                // 统计信息
-                let (require_bytes, require_count) = {
-                    let runtime = RUNTIME.lock().unwrap();
-                    (runtime.require_bytes, runtime.require_count)
-                };
-
-                // 成功信息
-                let (completed_bytes, completed_count) = {
-                    let runtime = RUNTIME.lock().unwrap();
-                    (runtime.completed_bytes, runtime.completed_count)
-                };
-
-                // 失败信息
-                let (uncompleted_bytes, uncompleted_count) = {
-                    let runtime = RUNTIME.lock().unwrap();
-                    (runtime.uncompleted_bytes, runtime.uncompleted_count)
-                };
-
-                // 断点续传信息
-                let (download_bytes, download_count) = {
-                    let runtime = RUNTIME.lock().unwrap();
-                    (runtime.download_bytes, runtime.download_count)
+                let (
+                    require_bytes,
+                    require_count,
+                    completed_bytes,
+                    completed_count,
+                    uncompleted_bytes,
+                    uncompleted_count,
+                    download_bytes,
+                    download_count
+                ) = {
+                    // 使用 try_lock 而不是 lock
+                    if let Ok(runtime) = RUNTIME.try_lock() {
+                        (
+                            runtime.require_bytes,
+                            runtime.require_count,
+                            runtime.completed_bytes,
+                            runtime.completed_count,
+                            runtime.uncompleted_bytes,
+                            runtime.uncompleted_count,
+                            runtime.download_bytes,
+                            runtime.download_count,
+                        )
+                    } else {
+                        return;
+                    }
                 };
 
                 // 下载百分比, 断点续传+成功+失败 / 总量
@@ -56,7 +58,7 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                 last_bytes = completed_bytes;
 
                 let use_ms = start.elapsed().as_millis();
-                let period_bytes = last_bytes-start_bytes;
+                let period_bytes = last_bytes - start_bytes;
                 let period_speed = match use_ms {
                     0 => 0,
                     _ => period_bytes,
@@ -73,14 +75,20 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                 let process_bytes = completed_bytes + uncompleted_bytes + download_bytes;
                 let remaining_bytes = require_bytes - process_bytes;
 
-                let speed_avg = (process_bytes+1) as u128 * 1000 / (use_ms + 1);
+                let speed_avg = (process_bytes + 1) as u128 * 1000 / (use_ms + 1);
                 let remaining_time = remaining_bytes as u128 / speed_avg + 1;
 
                 tracing::info!("download_watch, last_speed: {}/s", HumanBytes(last_speed));
                 pb.set_length(require_count);
                 pb.set_position(last_count);
 
-                pb.set_message(pbar::format(require_bytes, period_speed, download_percent, process_bytes, remaining_time));
+                pb.set_message(pbar::format(
+                    require_bytes,
+                    period_speed,
+                    download_percent,
+                    process_bytes,
+                    remaining_time
+                ));
             }
             _ = token_bandwidth.cancelled() => {
                 break;
