@@ -26,7 +26,7 @@ pub fn format(
     // 1. 下载大小的进度
     // 2. 下载速度
     format!(
-        "| {}/{} |{:.2}%|{}/s",
+        "| {}/{} | {:.2}% | {}/s",
         download_bytes_human,
         require_bytes_human,
         download_precent * 100.0,
