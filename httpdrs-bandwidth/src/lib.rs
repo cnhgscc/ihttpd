@@ -37,7 +37,7 @@ impl Bandwidth {
         let mut loop_count = 0;
         loop {
             let old_used = self.period_used.fetch_add(desired_bytes, Ordering::Relaxed);
-            if old_used + desired_bytes > self.max_bs {
+            if old_used.saturating_add(desired_bytes) > self.max_bs {
                 self.period_used.fetch_sub(desired_bytes, Ordering::Relaxed);
                 tracing::info!(
                     "download_bandwidth, waiting -> desired: {}  exceed max_bs: {}",
