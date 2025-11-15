@@ -90,6 +90,10 @@ pub(crate) async fn down(
 
             tokio::spawn(async move {
                 let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
+
+                let mut download_bytes = 0;
+                let mut download_count = 0;
+
                 for raw_result in csv_reader.records() {
                     let raw_line = raw_result.unwrap();
                     let sign = raw_line.get(0).unwrap().to_string();
@@ -98,9 +102,9 @@ pub(crate) async fn down(
                     if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()) {
                         if reader_size == size {
                             // TODO test: 断点续传的记录
-                            let mut rt = RUNTIME.lock().unwrap();
-                            rt.download_bytes += size;
-                            rt.download_count += 1;
+                            download_bytes += size;
+                            download_count += 1;
+
                             continue;
                         }
                         tx_sender
@@ -113,6 +117,12 @@ pub(crate) async fn down(
                             .await
                             .unwrap();
                     }
+                }
+
+                {
+                    let mut rt = RUNTIME.lock().unwrap();
+                    rt.download_bytes += download_bytes;
+                    rt.download_count += download_count;
                 }
             });
         }
