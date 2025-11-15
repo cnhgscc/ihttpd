@@ -9,7 +9,7 @@ use crate::state::RUNTIME;
 pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
     let start = Instant::now();
 
-    pb.set_message(pbar::format(0, 0, 0.0, 0, 0));
+    // pb.set_message(pbar::format(0, 0, 0.0, 0, 0));
 
     let mut last_count: u64 = 0;
     let mut last_bytes: u64 = 0;
