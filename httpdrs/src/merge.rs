@@ -16,6 +16,7 @@ pub struct MergeMessage {
 }
 
 pub type MergeSender = mpsc::Sender<MergeMessage>;
+
 pub type MergeReceiver = mpsc::Receiver<MergeMessage>;
 
 /// 获取队列文件进行合并

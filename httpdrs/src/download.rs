@@ -17,6 +17,16 @@ pub struct DownloadFileConfig {
     pub chunk_size: u64,
 }
 
+impl DownloadFileConfig {
+    pub fn new(sign: String, require_size: u64) -> Self {
+        DownloadFileConfig {
+            sign,
+            require_size,
+            chunk_size: 1024 * 1024 * 5,
+        }
+    }
+}
+
 pub async fn download_file(
     bandwidth: Arc<Bandwidth>,
     jobs: Arc<Semaphore>,
@@ -24,7 +34,7 @@ pub async fn download_file(
     client_sign: Arc<SignatureClient>,
     merge_sender: Arc<MergeSender>,
     config: DownloadFileConfig,
-) -> Result<(String, tokio::time::Duration), Box<dyn std::error::Error>> {
+) -> Option<(String, tokio::time::Duration)> {
     let start = Instant::now();
     let require_size = config.require_size;
     let chunk_size = config.chunk_size;
@@ -37,41 +47,28 @@ pub async fn download_file(
         RUNTIME.lock().unwrap().temp_path.clone() // 提前获取并释放锁
     });
 
-    let reader_ref = Arc::new(httpd::reader_parse(sign.clone())?);
-    let local_path = reader_ref.local_absolute_path_str(data_path.as_str());
-    tracing::debug!(
-        "download, sign: {} -> {:?}",
-        reader_ref,
-        reader_ref.local_absolute_path_str(data_path.as_str())
-    );
+    let args = stream::Args::new(data_path.to_string(), temp_path.to_string());
 
-    if let Some(local_size) = httpd::check_file_meta(local_path.clone()) {
-        if local_size == config.require_size {
-            RUNTIME.lock().unwrap().completed_bytes += local_size;
-            return Ok((
-                reader_ref
-                    .local_relative_path()
-                    .to_string_lossy()
-                    .to_string(),
-                start.elapsed(),
-            ));
-        } else {
-            tracing::debug!(
-                "download, start: {}, local: {}, require: {}",
-                reader_ref,
-                local_size,
-                require_size
-            );
-        }
+    let reader_ref = Arc::new(httpd::reader_parse(sign.clone()).ok()?);
+    let local_path = reader_ref.local_absolute_path_str(data_path.as_str());
+
+    if let Some(local_size) = httpd::check_file_meta(local_path.clone())
+        && local_size == config.require_size
+    {
+        RUNTIME.lock().unwrap().completed_bytes += local_size; // TODO: 计算完成字节
+        return Some((
+            reader_ref
+                .local_relative_path()
+                .to_string_lossy()
+                .to_string(),
+            start.elapsed(),
+        ));
     }
 
     let total_parts = require_size.div_ceil(chunk_size);
 
-    // 每个文件都创建一下分片下载的最大检查队列
     let (tx_part, mut rx_part) = mpsc::channel::<(u64, usize, i32)>(100);
     let reader_merge = Arc::clone(&reader_ref);
-
-    tracing::debug!("download, parts: {}, {}", total_parts, reader_ref);
 
     for idx_part in 0..total_parts {
         let part_start = idx_part * chunk_size;
@@ -88,13 +85,12 @@ pub async fn download_file(
         let jobs_ = Arc::clone(&jobs);
         let tx_part_ = tx_part.clone();
         let sign_ = sign.clone();
-        let data_path_ = Arc::clone(&data_path);
-        let temp_path_ = Arc::clone(&temp_path);
+        let args_ = Arc::clone(&args);
 
         let client_down_span = Arc::clone(&client_down);
         let client_sign_span = Arc::clone(&client_sign);
 
-        let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载\
+        let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
         tokio::spawn(async move {
             let _permit = jobs_.acquire().await.unwrap(); // 下载器并发控制
             {
@@ -102,50 +98,28 @@ pub async fn download_file(
                 tracing::info!("download_jobs: available {}", jobs_count);
             }
 
-            let (download_len, download_signal) = match stream::download_part(
+            let (len, signal) = match stream::stream_download_range(
                 client_down_span,
                 client_sign_span,
                 reader_,
-                stream::DownloadPartParams {
-                    idx_part,
-                    start_pos: part_start,
-                    end_pos: part_end,
-                    total_parts,
-                    sign: sign_,
-                },
-                stream::DownloadConfig {
-                    data_path: data_path_.to_string(),
-                    temp_path: temp_path_.to_string(),
-                    max_retries: 20,
-                },
+                stream::Range::new(idx_part, part_start, part_end, total_parts, sign_, args_),
             )
             .await
             {
                 Some(resp_len) => (resp_len, 1),
-                None => {
-                    (0, 0)
-                }
+                None => (0, 0), //
             };
 
-            tx_part_
-                .send((idx_part, download_len, download_signal))
-                .await
-                .unwrap();
+            tx_part_.send((idx_part, len, signal)).await.unwrap();
         });
     }
     drop(tx_part);
 
     let mut completed_parts = 0;
-    while let Some((idx_part, download_len, download_signal)) = rx_part.recv().await {
+    while let Some((_idx_part, download_len, _download_signal)) = rx_part.recv().await {
+        // TODO: 处理经过重试，下载失败的数据进行记录逻辑 _download_signal
         completed_parts += 1;
         RUNTIME.lock().unwrap().download_bytes += download_len as u64;
-        tracing::debug!(
-            "download_part, complete {}, use: {}  part: {:?}, {}",
-            reader_merge,
-            download_len,
-            idx_part,
-            download_signal
-        );
     }
     RUNTIME.lock().unwrap().download_count += 1;
 
@@ -160,7 +134,7 @@ pub async fn download_file(
             .await
             .unwrap();
     }
-    Ok((
+    Some((
         reader_ref
             .local_relative_path()
             .to_string_lossy()

@@ -42,62 +42,37 @@ pub(crate) async fn down(
     let stop = tokio::spawn(async move {
         // 文件下载并发控制10000, 主要受限于存储的QPS
         let semaphore = Arc::new(Semaphore::new(10000));
-        let chunk_size = 1024 * 1024 * 5;
+
         while let Some((_meta_path, sign, size)) = rx_read.recv().await {
             if stop_down.is_cancelled() {
-                // TODO: 停止下载文件
                 break;
             }
 
             let bandwidth_ = Arc::clone(&bandwidth);
-            let jobs_ = Arc::clone(&jobs);
+            let parallel_ = Arc::clone(&jobs);
             let client_down_ = Arc::clone(&client_down);
             let client_sign_ = Arc::clone(&client_sign);
             let tx_merge_ = Arc::clone(&tx_merge);
             let semaphore_ = Arc::clone(&semaphore);
 
+            let config_down = DownloadFileConfig::new(sign, size);
+
             // 开启一个异步任务下载文件
             tokio::spawn(async move {
                 let _permit = semaphore_.acquire().await.unwrap(); // 最大并发下载文件数量
-                {
-                    let _count = semaphore_.available_permits();
-                    let mut rt = RUNTIME.lock().unwrap();
-                    rt.parallel_sumit = _count;
-                    tracing::info!("download_sumit: {}", rt.parallel_sumit);
-                }
-
-                let (download_name, download_duration) = match download_file(
+                tracing::info!(
+                    "download_submit, available_permits: {}",
+                    semaphore_.available_permits()
+                );
+                download_file(
                     bandwidth_,
-                    jobs_,
+                    parallel_,
                     client_down_,
                     client_sign_,
                     tx_merge_,
-                    DownloadFileConfig {
-                        sign: sign.clone(),
-                        require_size: size,
-                        chunk_size,
-                    },
+                    config_down,
                 )
                 .await
-                {
-                    Ok((download_name, download_duration)) => {
-                        (download_name, Option::from(download_duration))
-                    }
-                    Err(e) => (e.to_string(), None),
-                };
-
-                match download_duration {
-                    Some(download_duration) => {
-                        tracing::info!(
-                            "{} downloaded in {} seconds",
-                            download_name,
-                            download_duration.as_secs()
-                        );
-                    }
-                    None => {
-                        tracing::info!("{} downloaded failed", download_name);
-                    }
-                }
             });
         }
     });
