@@ -8,8 +8,9 @@ use tokio_util::sync::CancellationToken;
 use httpdrs_core::httpd;
 use httpdrs_core::httpd::Bandwidth;
 use httpdrs_core::httpd::SignatureClient;
+use httpdrs_core::request;
 
-use crate::download::{DownloadFileConfig, download_file};
+use crate::download::download_file;
 use crate::merge::MergeSender;
 use crate::meta;
 use crate::stats::RUNTIME;
@@ -55,7 +56,7 @@ pub(crate) async fn down(
             let tx_merge_ = Arc::clone(&tx_merge);
             let semaphore_ = Arc::clone(&semaphore);
 
-            let config_down = DownloadFileConfig::new(sign, size);
+            let request_reader = request::FSReader::new(sign, size);
 
             // 开启一个异步任务下载文件
             tokio::spawn(async move {
@@ -70,7 +71,7 @@ pub(crate) async fn down(
                     client_down_,
                     client_sign_,
                     tx_merge_,
-                    config_down,
+                    request_reader,
                 )
                 .await
             });

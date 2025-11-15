@@ -6,26 +6,11 @@ use tokio::time::Instant;
 
 use httpdrs_core::httpd;
 use httpdrs_core::httpd::{Bandwidth, SignatureClient};
+use httpdrs_core::request;
 
 use crate::merge::{MergeMessage, MergeSender};
 use crate::stats::RUNTIME;
 use crate::stream;
-
-pub struct DownloadFileConfig {
-    pub sign: String,
-    pub require_size: u64,
-    pub chunk_size: u64,
-}
-
-impl DownloadFileConfig {
-    pub fn new(sign: String, require_size: u64) -> Self {
-        DownloadFileConfig {
-            sign,
-            require_size,
-            chunk_size: 1024 * 1024 * 5,
-        }
-    }
-}
 
 pub async fn download_file(
     bandwidth: Arc<Bandwidth>,
@@ -33,12 +18,12 @@ pub async fn download_file(
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
     merge_sender: Arc<MergeSender>,
-    config: DownloadFileConfig,
+    request_reader: Arc<request::FSReader>,
 ) -> Option<(String, tokio::time::Duration)> {
     let start = Instant::now();
-    let require_size = config.require_size;
-    let chunk_size = config.chunk_size;
-    let sign = config.sign;
+    let chunk_size = request_reader.chunk_size;
+    let sign = &request_reader.request_sign;
+    let total_parts = request_reader.total_parts();
 
     let data_path = Arc::new({
         RUNTIME.lock().unwrap().data_path.clone() // 提前获取并释放锁
@@ -53,7 +38,7 @@ pub async fn download_file(
     let local_path = reader_ref.local_absolute_path_str(data_path.as_str());
 
     if let Some(local_size) = httpd::check_file_meta(local_path.clone())
-        && local_size == config.require_size
+        && local_size == request_reader.require_size
     {
         RUNTIME.lock().unwrap().completed_bytes += local_size; // TODO: 计算完成字节
         return Some((
@@ -65,16 +50,14 @@ pub async fn download_file(
         ));
     }
 
-    let total_parts = require_size.div_ceil(chunk_size);
-
     let (tx_part, mut rx_part) = mpsc::channel::<(u64, usize, i32)>(100);
     let reader_merge = Arc::clone(&reader_ref);
 
     for idx_part in 0..total_parts {
         let part_start = idx_part * chunk_size;
         let part_end = (idx_part + 1) * chunk_size;
-        let part_end = if part_end > require_size {
-            require_size
+        let part_end = if part_end > request_reader.require_size {
+            request_reader.require_size
         } else {
             part_end
         };
