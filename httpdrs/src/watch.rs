@@ -16,12 +16,13 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
     let mut last_speed: u64 = 0;
 
     loop {
-        tokio::select! {
-            _ = tokio::time::sleep(tokio::time::Duration::from_millis(1000)) => {
-                let _start_count = last_count;
-                let start_bytes = last_bytes;
-
-                println!("=========================");
+        println!("===========================")
+        // tokio::select! {
+        //     _ = tokio::time::sleep(tokio::time::Duration::from_millis(1000)) => {
+        //         let _start_count = last_count;
+        //         let start_bytes = last_bytes;
+        //
+        //         println!("=========================");
 
                 // let (
                 //     require_bytes,
@@ -101,10 +102,10 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                 //     process_bytes,
                 //     remaining_time
                 // ));
-            }
-            _ = token_bandwidth.cancelled() => {
-                break;
-            }
-        }
+            // }
+            // _ = token_bandwidth.cancelled() => {
+            //     break;
+            // }
+        // }
     }
 }

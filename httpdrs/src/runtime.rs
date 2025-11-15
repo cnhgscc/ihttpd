@@ -21,15 +21,6 @@ pub fn start_multi_thread(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let start = tokio::time::Instant::now();
 
-    tokio::spawn(async move {
-        let mut count = 0;
-        loop {
-            tokio::time::sleep(Duration::from_secs(1)).await;
-            println!("📊 监控心跳: {}", count);
-            count += 1;
-        }
-    });
-
     let rt = runtime::Builder::new_multi_thread()
         .worker_threads(1000)
         .enable_all()
