@@ -126,7 +126,7 @@ pub fn start_multi_thread(
     let process_bytes =
         runtime.completed_bytes + runtime.uncompleted_bytes + runtime.download_bytes;
     pb.set_message(pbar::format(
-        runtime.require_count,
+        runtime.require_bytes,
         avg_speed as u64,
         1.0,
         process_bytes,
