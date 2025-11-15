@@ -9,7 +9,7 @@ use httpdrs_core::httpd::{Bandwidth, SignatureClient};
 use httpdrs_core::request;
 
 use crate::merge::{MergeMessage, MergeSender};
-use crate::stats::RUNTIME;
+use crate::state::RUNTIME;
 use crate::stream;
 
 pub async fn download_file(
@@ -26,12 +26,8 @@ pub async fn download_file(
     let total_parts = request_reader.total_parts();
     let require_size = request_reader.require_size;
 
-    let data_path = Arc::new({
-        RUNTIME.lock().unwrap().data_path.clone() // 提前获取并释放锁
-    });
-    let temp_path = Arc::new({
-        RUNTIME.lock().unwrap().temp_path.clone() // 提前获取并释放锁
-    });
+    let data_path = RUNTIME.get().unwrap().data_path.read().await.clone();
+    let temp_path = RUNTIME.get().unwrap().temp_path.read().await.clone();
 
     let args = stream::Args::new(data_path.to_string(), temp_path.to_string());
 
@@ -41,7 +37,7 @@ pub async fn download_file(
     if let Some(local_size) = httpd::check_file_meta(local_path.clone()) {
         if local_path.exists() {
             if local_size == request_reader.require_size {
-                RUNTIME.lock().unwrap().completed_bytes += local_size; // TODO: 计算完成字节
+                RUNTIME.get()?.add_completed(0, local_size);
                 return Some((
                     reader_ref
                         .local_relative_path()
@@ -120,14 +116,14 @@ pub async fn download_file(
             // 根据状态修改文件处理大小
             0 => {
                 completed_parts += 1;
-                RUNTIME.lock().unwrap().download_bytes += range_length as u64;
+                RUNTIME.get()?.add_download(0, range_length as u64)
             }
             1 => {
                 completed_parts += 1;
-                RUNTIME.lock().unwrap().completed_bytes += range_length as u64;
+                RUNTIME.get()?.add_completed(0, range_length as u64)
             }
             _ => {
-                RUNTIME.lock().unwrap().uncompleted_bytes += range_length as u64;
+                RUNTIME.get()?.add_download(0, range_length as u64);
             }
         }
     }
@@ -137,28 +133,28 @@ pub async fn download_file(
         1 => {
             // 不需要合并
             if completed_parts == 1 {
-                RUNTIME.lock().unwrap().completed_count += 1;
+                RUNTIME.get()?.add_completed(1, 0)
             } else {
-                RUNTIME.lock().unwrap().uncompleted_count += 1;
+                RUNTIME.get()?.add_uncompleted(1, 0);
             }
         }
         _ => {
             if completed_parts == total_parts {
                 // 需要合并
-                RUNTIME.lock().unwrap().completed_count += 1;
+                RUNTIME.get()?.add_completed(1, 0);
                 merge_sender
                     .send(MergeMessage {
                         reader: Arc::clone(&reader_merge),
                         total_parts,
                         total_bytes: require_size,
-                        data_path: (*data_path).clone(),
-                        temp_path: (*temp_path).clone(),
+                        data_path,
+                        temp_path,
                     })
                     .await
                     .unwrap();
             } else {
                 // 下载失败的, 失败数量+1，不尽兴合并
-                RUNTIME.lock().unwrap().uncompleted_count += 1;
+                RUNTIME.get()?.add_uncompleted(1, 0);
             }
         }
     }

@@ -13,7 +13,7 @@ pub mod prelude;
 pub mod presign;
 mod reader;
 pub mod runtime;
-pub mod stats;
+pub mod state;
 pub mod stream;
 pub mod watch;
 

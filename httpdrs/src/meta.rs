@@ -1,7 +1,7 @@
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::stats::META;
+use crate::state::META;
 
 pub async fn read_meta(
     meta_list: String,

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::core::{httpd, pbar};
 use crate::merge::MergeMessage;
-use crate::stats::{META, RUNTIME};
+use crate::state::{META, RUNTIME, init_runtime};
 use crate::{bandwidth, downloader, merge, reader, watch};
 use futures::future::join_all;
 use httpdrs_core::httpd::SignatureClient;
@@ -29,9 +29,10 @@ pub fn start_multi_thread(
 
     let rt_token = CancellationToken::new();
 
-    RUNTIME.lock().unwrap().meta_path = format!("{}/meta", use_loc);
-    RUNTIME.lock().unwrap().data_path = format!("{}/data", use_loc);
-    RUNTIME.lock().unwrap().temp_path = format!("{}/temp", use_loc);
+    let meta_path = format!("{}/meta", use_loc);
+    let data_path = format!("{}/data", use_loc);
+    let temp_path = format!("{}/temp", use_loc);
+    init_runtime(meta_path, data_path, temp_path);
 
     let client_down = Arc::new(
         Client::builder()
@@ -118,7 +119,7 @@ pub fn start_multi_thread(
     });
     rt.shutdown_background();
 
-    let runtime = { RUNTIME.lock().unwrap() };
+    let runtime = { RUNTIME.get().unwrap().snapshot() };
 
     pb.set_length(runtime.require_count);
     pb.set_position(runtime.download_count + runtime.completed_count + runtime.uncompleted_count);

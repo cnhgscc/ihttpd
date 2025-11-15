@@ -4,13 +4,13 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 use crate::meta;
-use crate::stats::RUNTIME;
+use crate::state::RUNTIME;
 
 pub(crate) async fn init(cancel: CancellationToken) {
     let start = Instant::now();
 
-    let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
-    let temp_path = RUNTIME.lock().unwrap().temp_path.clone();
+    let meta_path = RUNTIME.get().unwrap().meta_path.read().await.to_string();
+    let temp_path = RUNTIME.get().unwrap().temp_path.read().await.to_string();
 
     let meta_list = format!("{}/meta.list", temp_path);
     while std::fs::metadata(&meta_list).is_err() {
@@ -24,13 +24,11 @@ pub(crate) async fn init(cancel: CancellationToken) {
 
     let stop_wait = cancel.clone();
     let stop = tokio::spawn(async move {
-        while let Some((_csv, bytes, size)) = rx.recv().await {
+        while let Some((_csv, bytes, count)) = rx.recv().await {
             if stop_wait.is_cancelled() {
                 break;
             }
-            let mut rt = RUNTIME.lock().unwrap();
-            rt.require_bytes += bytes;
-            rt.require_count += size;
+            RUNTIME.get().unwrap().add_require(count, bytes);
         }
     });
 

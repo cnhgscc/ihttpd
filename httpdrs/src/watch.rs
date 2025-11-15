@@ -4,7 +4,7 @@ use tokio_util::sync::CancellationToken;
 
 use httpdrs_core::pbar;
 
-use crate::stats::RUNTIME;
+use crate::state::RUNTIME;
 
 pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
     let start = Instant::now();
@@ -31,7 +31,7 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                     download_bytes,
                     download_count
                 ) = {
-                    let runtime = RUNTIME.lock().unwrap();
+                    let runtime = RUNTIME.get().unwrap().snapshot();
                     (
                         runtime.require_bytes,
                         runtime.require_count,
@@ -69,8 +69,7 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
 
                 // TODO: 计算剩余时间
                 let process_bytes = completed_bytes + uncompleted_bytes + download_bytes;
-                let remaining_bytes = require_bytes - process_bytes;
-
+                let remaining_bytes = require_bytes.saturating_sub(process_bytes);
 
                 if use_ms == 0 { continue }
                 let speed_avg = (process_bytes + 1) as u128 * 1000 / use_ms;

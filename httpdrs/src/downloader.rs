@@ -13,7 +13,7 @@ use httpdrs_core::request;
 use crate::download::download_file;
 use crate::merge::MergeSender;
 use crate::meta;
-use crate::stats::RUNTIME;
+use crate::state::RUNTIME;
 
 // 下载流程
 pub(crate) async fn down(
@@ -24,9 +24,9 @@ pub(crate) async fn down(
     tx_merge: Arc<MergeSender>,
     cancel: CancellationToken,
 ) {
-    let meta_path = RUNTIME.lock().unwrap().meta_path.clone();
-    let data_path = RUNTIME.lock().unwrap().data_path.clone();
-    let temp_path = RUNTIME.lock().unwrap().temp_path.clone();
+    let meta_path = RUNTIME.get().unwrap().meta_path.read().await.clone();
+    let data_path = RUNTIME.get().unwrap().data_path.read().await.clone();
+    let temp_path = RUNTIME.get().unwrap().temp_path.read().await.clone();
 
     let meta_list = format!("{}/meta.list", temp_path);
     while std::fs::metadata(&meta_list).is_err() {
@@ -118,12 +118,10 @@ pub(crate) async fn down(
                             .unwrap();
                     }
                 }
-
-                {
-                    let mut rt = RUNTIME.lock().unwrap();
-                    rt.download_bytes += download_bytes;
-                    rt.download_count += download_count;
-                }
+                RUNTIME
+                    .get()
+                    .unwrap()
+                    .add_download(download_count, download_bytes);
             });
         }
         // 检查完毕
