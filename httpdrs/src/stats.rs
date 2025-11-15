@@ -8,20 +8,26 @@ pub struct RuntimeContext {
     pub data_path: String,
     pub temp_path: String,
 
+    // TODO: check
     pub flag: u64, // 运行标志
-
-    pub require_count: u64,
-    pub require_bytes: u64,
-
     pub download_speed: u64,
-
-    pub completed_count: u64,
-    pub completed_bytes: u64,
-
-    pub download_bytes: u64,
-    pub download_count: u64,
-
     pub parallel_sumit: usize,
+
+    // require
+    pub require_count: u64, // 需要下载的文件数量
+    pub require_bytes: u64, // 需要下载的文件大小
+
+    // checkpoint
+    pub download_bytes: u64, // 断点续传时, 已经完成的文件数量
+    pub download_count: u64, // 断点续传时, 已经完成的文件大小
+
+    // 下载成功
+    pub completed_count: u64, // 已经完成的文件数量
+    pub completed_bytes: u64, // 已经完成的文件大小
+
+    // 下载失败
+    pub uncompleted_count: u64, // 未完成下载的文件数量
+    pub uncompleted_bytes: u64, // 未完成下载的文件大小
 }
 
 pub(crate) static RUNTIME: LazyLock<Arc<Mutex<RuntimeContext>>> =

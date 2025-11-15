@@ -81,7 +81,7 @@ pub async fn download_file(
                 tracing::info!("download_jobs: available {}", jobs_count);
             }
 
-            let (len, signal) = match stream::stream_download_range(
+            let (length, state) = match stream::stream_download_range(
                 client_down_span,
                 client_sign_span,
                 reader_,
@@ -89,34 +89,67 @@ pub async fn download_file(
             )
             .await
             {
-                Some(resp_len) => (resp_len, 1),
-                None => (0, 0), //
+                Some((resp_len, resp_state)) => (resp_len, resp_state),
+                None => (0, 2),
             };
 
-            tx_part_.send((idx_part, len, signal)).await.unwrap();
+            // 0: skip, 1: down, 2: fail
+            tx_part_
+                .send((idx_part, length, state as i32))
+                .await
+                .unwrap();
         });
     }
     drop(tx_part);
 
     let mut completed_parts = 0;
-    while let Some((_idx_part, download_len, _download_signal)) = rx_part.recv().await {
-        // TODO: 处理经过重试，下载失败的数据进行记录逻辑 _download_signal
-        completed_parts += 1;
-        RUNTIME.lock().unwrap().download_bytes += download_len as u64;
+    while let Some((_idx_part, range_length, range_state)) = rx_part.recv().await {
+        match range_state {
+            // 根据状态修改文件处理大小
+            0 => {
+                completed_parts += 1;
+                RUNTIME.lock().unwrap().download_bytes += range_length as u64;
+            }
+            1 => {
+                completed_parts += 1;
+                RUNTIME.lock().unwrap().completed_bytes += range_length as u64;
+            }
+            _ => {
+                RUNTIME.lock().unwrap().uncompleted_bytes += range_length as u64;
+            }
+        }
     }
-    RUNTIME.lock().unwrap().download_count += 1;
 
-    if total_parts > 1 && completed_parts == total_parts {
-        merge_sender
-            .send(MergeMessage {
-                reader: Arc::clone(&reader_merge),
-                total_parts,
-                data_path: (*data_path).clone(),
-                temp_path: (*temp_path).clone(),
-            })
-            .await
-            .unwrap();
+    // 合并逻辑, 状态只修改文件数量
+    match total_parts {
+        1 => {
+            // 不需要合并
+            if completed_parts == 1 {
+                RUNTIME.lock().unwrap().completed_count += 1;
+            } else {
+                RUNTIME.lock().unwrap().uncompleted_count += 1;
+            }
+        }
+        _ => {
+            if completed_parts == total_parts {
+                // 需要合并
+                RUNTIME.lock().unwrap().completed_count += 1;
+                merge_sender
+                    .send(MergeMessage {
+                        reader: Arc::clone(&reader_merge),
+                        total_parts,
+                        data_path: (*data_path).clone(),
+                        temp_path: (*temp_path).clone(),
+                    })
+                    .await
+                    .unwrap();
+            } else {
+                // 下载失败的, 失败数量+1，不尽兴合并
+                RUNTIME.lock().unwrap().uncompleted_count += 1;
+            }
+        }
     }
+
     Some((
         reader_ref
             .local_relative_path()
