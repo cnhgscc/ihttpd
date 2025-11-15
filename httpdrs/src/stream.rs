@@ -71,7 +71,8 @@ impl Range {
     }
 }
 
-/// stream_download_range 请求网络获取分片数据
+/// stream_download_range 请求网络获取数据块
+/// 返回值是下载的数据块大小，None -> retry
 pub async fn stream_download_range(
     client_down: Arc<Client>,
     client_sign: Arc<SignatureClient>,
@@ -81,7 +82,7 @@ pub async fn stream_download_range(
     let start = Instant::now();
 
     let range_path = range.path(reader_ref);
-    // TODO: 检查是否已经下载完毕
+    // TODO: 如果是要下载分片，需要检查是否已经下载完毕
 
     let presign_url = presign::read(range.sign.clone(), client_sign).await?;
 
