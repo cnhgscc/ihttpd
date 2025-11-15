@@ -71,11 +71,22 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                 let process_bytes = completed_bytes + uncompleted_bytes + download_bytes;
                 let remaining_bytes = require_bytes.saturating_sub(process_bytes);
 
-                if use_ms == 0 { continue }
-                let speed_avg = (process_bytes + 1) as u128 * 1000 / use_ms;
 
-                if speed_avg == 0 { continue }
-                let remaining_time = remaining_bytes as u128 / speed_avg;
+                let speed_avg = match use_ms {
+                    0 => 0,
+                    _ =>{
+                        let speed = period_bytes as u128 * 1000 / use_ms;
+                        match speed {
+                            0 => download_bytes  as u128 / use_ms, // 检查速度
+                            _ => speed // 下载的速度
+                        }
+                    },
+                };
+
+                let remaining_time=  match speed_avg {
+                    0 => 0, // 非有效时间: use_ms -> 0
+                    _ => remaining_bytes as u128 / speed_avg,
+                };
 
                 tracing::info!("download_watch, last_speed: {}/s", HumanBytes(last_speed));
                 pb.set_length(require_count);
