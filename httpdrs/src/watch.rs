@@ -31,21 +31,17 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                     download_bytes,
                     download_count
                 ) = {
-                    // 使用 try_lock 而不是 lock
-                    if let Ok(runtime) = RUNTIME.try_lock() {
-                        (
-                            runtime.require_bytes,
-                            runtime.require_count,
-                            runtime.completed_bytes,
-                            runtime.completed_count,
-                            runtime.uncompleted_bytes,
-                            runtime.uncompleted_count,
-                            runtime.download_bytes,
-                            runtime.download_count,
-                        )
-                    } else {
-                        return;
-                    }
+                    let runtime = RUNTIME.lock().unwrap();
+                    (
+                        runtime.require_bytes,
+                        runtime.require_count,
+                        runtime.completed_bytes,
+                        runtime.completed_count,
+                        runtime.uncompleted_bytes,
+                        runtime.uncompleted_count,
+                        runtime.download_bytes,
+                        runtime.download_count,
+                    )
                 };
 
                 // 下载百分比, 断点续传+成功+失败 / 总量
