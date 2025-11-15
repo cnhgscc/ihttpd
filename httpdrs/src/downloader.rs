@@ -33,11 +33,11 @@ pub(crate) async fn down(
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 
-    let (tx_meta, mut rx_meta) = mpsc::channel::<String>(100);
+    let (tx_meta, mut rx_meta) = mpsc::channel::<String>(2);
     tokio::spawn(meta::read_meta(meta_list, tx_meta, cancel.clone(), 2));
 
     // 获取未下载的文件
-    let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(2);
+    let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(100);
 
     let stop_down = cancel.clone();
     let stop = tokio::spawn(async move {
@@ -91,8 +91,6 @@ pub(crate) async fn down(
             tokio::spawn(async move {
                 let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
 
-                let mut download_bytes = 0;
-                let mut download_count = 0;
 
                 for raw_result in csv_reader.records() {
                     let raw_line = raw_result.unwrap();
@@ -101,10 +99,10 @@ pub(crate) async fn down(
                     let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
                     if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()).await {
                         if reader_size == size {
-                            // TODO test: 断点续传的记录
-                            download_bytes += size;
-                            download_count += 1;
-
+                            RUNTIME
+                                .get()
+                                .unwrap()
+                                .add_download(1, size);
                             continue;
                         }
                         tx_sender
@@ -118,10 +116,7 @@ pub(crate) async fn down(
                             .unwrap();
                     }
                 }
-                RUNTIME
-                    .get()
-                    .unwrap()
-                    .add_download(download_count, download_bytes);
+
             });
         }
         // 检查完毕
