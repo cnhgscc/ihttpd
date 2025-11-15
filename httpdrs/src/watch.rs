@@ -71,8 +71,12 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                 let process_bytes = completed_bytes + uncompleted_bytes + download_bytes;
                 let remaining_bytes = require_bytes - process_bytes;
 
-                let speed_avg = (process_bytes + 1) as u128 * 1000 / (use_ms + 1);
-                let remaining_time = remaining_bytes as u128 / speed_avg + 1;
+
+                if use_ms == 0 { continue }
+                let speed_avg = (process_bytes + 1) as u128 * 1000 / use_ms;
+
+                if speed_avg == 0 { continue }
+                let remaining_time = remaining_bytes as u128 / speed_avg;
 
                 tracing::info!("download_watch, last_speed: {}/s", HumanBytes(last_speed));
                 pb.set_length(require_count);
