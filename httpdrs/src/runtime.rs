@@ -22,7 +22,7 @@ pub fn start_multi_thread(
     let start = tokio::time::Instant::now();
 
     let rt = runtime::Builder::new_multi_thread()
-        .worker_threads(100)
+        .worker_threads(10)
         .enable_all()
         .build()
         .unwrap();
