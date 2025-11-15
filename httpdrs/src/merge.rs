@@ -134,27 +134,20 @@ pub async fn download_merge(
                 part_file.read_exact(&mut buffer).await?;
                 dest_file.write_all(&buffer).await?;
 
-                // 读取并检查多出的字节
-                let extra_bytes = part_size - last_part_size;
-                let mut extra_buffer = vec![0u8; extra_bytes as usize];
-                part_file.read_exact(&mut extra_buffer).await?;
-
-                tracing::warn!("多出的 {} 字节内容:", extra_bytes);
-                tracing::warn!("  Hex: {:?}", extra_buffer);
-                tracing::warn!("  ASCII: {:?}", String::from_utf8_lossy(&extra_buffer));
-                
             }else {
                 tokio::io::copy(&mut part_file, &mut dest_file).await?;
             }
 
         }else{
-            if part_size != chunk_size {
+            if part_size > chunk_size {
+                let mut buffer = vec![0u8; chunk_size as usize];
+                part_file.read_exact(&mut buffer).await?;
+                dest_file.write_all(&buffer).await?;
                 tracing::warn!("download_merge, idx_part: {}, local_part_size: {}", idx_part,  part_size)
+            }else {
+                tokio::io::copy(&mut part_file, &mut dest_file).await?;
             }
-            tokio::io::copy(&mut part_file, &mut dest_file).await?;
         }
-
-
     }
     for idx_part in 0..total_parts {
         let part_path = reader.local_part_path(data_path, idx_part, temp_path);
