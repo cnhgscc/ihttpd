@@ -1,8 +1,7 @@
-use crate::presign::read;
-use crate::state;
-use crate::state::META;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
+
+use crate::state::{META, META_FILE_LIST};
 
 pub async fn read_meta(
     _meta_list: String,
@@ -19,7 +18,7 @@ pub async fn read_meta(
         loop_count += 1;
 
         let tx_meta_ = tx_meta.clone();
-        let mata_list_path = state::META_FILE_LIST.try_read().unwrap().clone();
+        let mata_list_path = META_FILE_LIST.try_read().unwrap().clone();
 
         let mut stop = false;
         for line in mata_list_path {

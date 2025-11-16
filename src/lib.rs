@@ -1,11 +1,9 @@
-use std::sync::{Mutex, OnceLock};
 use pyo3::prelude::*;
+use std::sync::{Mutex, OnceLock};
 use std::thread;
 
 use httpdrs::prelude::*;
 use httpdrs::state;
-
-
 
 static DOWNLOAD_THREAD: OnceLock<Mutex<Option<thread::JoinHandle<()>>>> = OnceLock::new();
 
@@ -21,7 +19,6 @@ fn multi_download(
     max_bandwidth: u64,
     max_parallel: u64,
 ) -> PyResult<()> {
-
     let handle = thread::spawn(move || {
         logger::try_logger_init(format!("{}/logs", use_loc).as_str());
 
@@ -32,14 +29,13 @@ fn multi_download(
             presign_api,
             network,
         )
-            .expect("start multi thread runtime err");
+        .expect("start multi thread runtime err");
     });
 
     // 将线程句柄存储到全局变量
     let global_handle = get_global_handle();
     let mut guard = global_handle.lock().unwrap();
     *guard = Some(handle);
-
 
     Ok(())
 }
@@ -50,9 +46,7 @@ fn wait_for_completion() -> PyResult<()> {
     let mut guard = global_handle.lock().unwrap();
     if let Some(handle) = guard.take() {
         handle.join().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Thread panicked: {:?}", e)
-            )
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Thread panicked: {:?}", e))
         })?;
     }
     Ok(())
@@ -60,7 +54,10 @@ fn wait_for_completion() -> PyResult<()> {
 
 #[pyfunction]
 fn meta_push(name: String) -> PyResult<()> {
-    state::META_FILE_LIST.try_write().unwrap().push(name.clone());
+    state::META_FILE_LIST
+        .try_write()
+        .unwrap()
+        .push(name.clone());
     Ok(())
 }
 

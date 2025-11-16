@@ -26,7 +26,6 @@ pub(crate) async fn down(
 ) {
     let meta_path = RUNTIME.get().unwrap().meta_path.read().await.clone();
     let data_path = RUNTIME.get().unwrap().data_path.read().await.clone();
-    let temp_path = RUNTIME.get().unwrap().temp_path.read().await.clone();
 
     let (tx_meta, mut rx_meta) = mpsc::channel::<String>(2);
     tokio::spawn(meta::read_meta("".to_string(), tx_meta, cancel.clone(), 2));
