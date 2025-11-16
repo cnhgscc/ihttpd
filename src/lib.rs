@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 
 use httpdrs::prelude::*;
+use httpdrs::state;
 
 #[pyfunction]
 fn multi_download(
@@ -22,9 +23,18 @@ fn multi_download(
     Ok(())
 }
 
+
+#[pyfunction]
+fn meta_push(name: String) -> PyResult<()>{
+    state::META_FILE_LIST.try_write().unwrap().push(name);
+    Ok( ())
+}
+
+
 /// A Python module implemented in Rust.
 #[pymodule]
 fn baai_flagdataset_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(multi_download, m)?)?;
+    m.add_function(wrap_pyfunction!(meta_push, m)?)?;
     Ok(())
 }

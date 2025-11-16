@@ -27,14 +27,10 @@ pub(crate) async fn down(
     let meta_path = RUNTIME.get().unwrap().meta_path.read().await.clone();
     let data_path = RUNTIME.get().unwrap().data_path.read().await.clone();
     let temp_path = RUNTIME.get().unwrap().temp_path.read().await.clone();
-
-    let meta_list = format!("{}/meta.list", temp_path);
-    while std::fs::metadata(&meta_list).is_err() {
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    }
+    
 
     let (tx_meta, mut rx_meta) = mpsc::channel::<String>(2);
-    tokio::spawn(meta::read_meta(meta_list, tx_meta, cancel.clone(), 2));
+    tokio::spawn(meta::read_meta("".to_string(), tx_meta, cancel.clone(), 2));
 
     // 获取未下载的文件
     let (tx_read, mut rx_read) = mpsc::channel::<(String, String, u64)>(100);

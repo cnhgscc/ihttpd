@@ -35,7 +35,7 @@ def init_with_cmdargs(cmd_args):
 
     try:
         from ..baai_helper import baai_print
-        from ..baai_flagdataset_rs import multi_download
+        from ..baai_flagdataset_rs import multi_download, meta_push
 
 
         baai_print.print_figlet()
@@ -51,6 +51,12 @@ def init_with_cmdargs(cmd_args):
         print(f"baai-flagdataset: network, {network}")
         print(f"baai-flagdataset: bandwidth, {bandwidth}")
         print(f"baai-flagdataset: parallel, {parallel}")
+
+
+        meta_push("---start---")
+        for meta_bin in (pathlib.Path(".").absolute()/ "meta").glob("*.bin"):
+            meta_push(meta_bin.name)
+        meta_push("---end---")
 
         multi_download(use_path, presign, network,bandwidth,  parallel)
 

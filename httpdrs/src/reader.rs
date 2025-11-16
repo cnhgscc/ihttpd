@@ -12,13 +12,9 @@ pub(crate) async fn init(cancel: CancellationToken) {
     let meta_path = RUNTIME.get().unwrap().meta_path.read().await.to_string();
     let temp_path = RUNTIME.get().unwrap().temp_path.read().await.to_string();
 
-    let meta_list = format!("{}/meta.list", temp_path);
-    while std::fs::metadata(&meta_list).is_err() {
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    }
 
     let (tx_meta, mut rx_meta) = mpsc::channel::<String>(100);
-    tokio::spawn(meta::read_meta(meta_list, tx_meta, cancel.clone(), 1));
+    tokio::spawn(meta::read_meta("".to_string(), tx_meta, cancel.clone(), 1));
 
     let (tx, mut rx) = mpsc::channel::<(String, u64, u64)>(2);
 
