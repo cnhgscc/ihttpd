@@ -1,8 +1,8 @@
-use tokio::sync::mpsc;
-use tokio_util::sync::CancellationToken;
 use crate::presign::read;
 use crate::state;
 use crate::state::META;
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 
 pub async fn read_meta(
     _meta_list: String,
@@ -19,8 +19,7 @@ pub async fn read_meta(
         loop_count += 1;
 
         let tx_meta_ = tx_meta.clone();
-        let mata_list_path =  state::META_FILE_LIST.try_read().unwrap().clone();
-
+        let mata_list_path = state::META_FILE_LIST.try_read().unwrap().clone();
 
         let mut stop = false;
         for line in mata_list_path {
@@ -37,7 +36,8 @@ pub async fn read_meta(
             {
                 let mut meta_map = META.lock().unwrap();
                 let flag = *meta_map.get(trimmed_line).unwrap_or(&0);
-                if flag & flag_status == flag_status { // 已经读取的跳过
+                if flag & flag_status == flag_status {
+                    // 已经读取的跳过
                     continue;
                 }
                 meta_map.insert(trimmed_line.to_string(), flag | flag_status);

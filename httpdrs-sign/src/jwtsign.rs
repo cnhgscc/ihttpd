@@ -77,7 +77,7 @@ pub fn reader_parse(token: String) -> Result<HttpdMetaReader, Box<dyn std::error
     Ok(meta_reader)
 }
 
-pub async  fn check_file_meta(file_path: PathBuf) -> Option<u64> {
+pub async fn check_file_meta(file_path: PathBuf) -> Option<u64> {
     match fs::metadata(&file_path).await {
         Ok(meta) => {
             if meta.is_file() {
@@ -93,4 +93,3 @@ pub async  fn check_file_meta(file_path: PathBuf) -> Option<u64> {
         }
     }
 }
-

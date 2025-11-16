@@ -149,6 +149,5 @@ impl Display for RuntimeSnapshot {
 pub(crate) static META: LazyLock<Arc<Mutex<HashMap<String, u64>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
-
 pub static META_FILE_LIST: LazyLock<Arc<RwLock<Vec<String>>>> =
     LazyLock::new(|| Arc::new(RwLock::new(Vec::new())));

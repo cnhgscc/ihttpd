@@ -12,7 +12,6 @@ pub(crate) async fn init(cancel: CancellationToken) {
     let meta_path = RUNTIME.get().unwrap().meta_path.read().await.to_string();
     let temp_path = RUNTIME.get().unwrap().temp_path.read().await.to_string();
 
-
     let (tx_meta, mut rx_meta) = mpsc::channel::<String>(100);
     tokio::spawn(meta::read_meta("".to_string(), tx_meta, cancel.clone(), 1));
 

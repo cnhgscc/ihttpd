@@ -27,7 +27,6 @@ pub(crate) async fn down(
     let meta_path = RUNTIME.get().unwrap().meta_path.read().await.clone();
     let data_path = RUNTIME.get().unwrap().data_path.read().await.clone();
     let temp_path = RUNTIME.get().unwrap().temp_path.read().await.clone();
-    
 
     let (tx_meta, mut rx_meta) = mpsc::channel::<String>(2);
     tokio::spawn(meta::read_meta("".to_string(), tx_meta, cancel.clone(), 2));
@@ -87,18 +86,16 @@ pub(crate) async fn down(
             tokio::spawn(async move {
                 let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
 
-
                 for raw_result in csv_reader.records() {
                     let raw_line = raw_result.unwrap();
                     let sign = raw_line.get(0).unwrap().to_string();
                     let size = raw_line.get(1).unwrap().parse::<u64>().unwrap();
                     let httpd_reader = httpd::reader_parse(sign.clone()).unwrap();
-                    if let Some(reader_size) = httpd_reader.check_local_file(data_path.as_str()).await {
+                    if let Some(reader_size) =
+                        httpd_reader.check_local_file(data_path.as_str()).await
+                    {
                         if reader_size == size {
-                            RUNTIME
-                                .get()
-                                .unwrap()
-                                .add_download(1, size);
+                            RUNTIME.get().unwrap().add_download(1, size);
                             continue;
                         }
                         tx_sender
@@ -112,7 +109,6 @@ pub(crate) async fn down(
                             .unwrap();
                     }
                 }
-
             });
         }
         // 检查完毕
