@@ -77,7 +77,7 @@ pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
                     _ =>{
                         let speed = period_bytes as u128 * 1000 / use_ms;
                         match speed{
-                            0 => download_bytes  as u128 / use_ms, // 检查速度
+                            0 => download_bytes  as u128 * 1000 / use_ms, // 检查速度
                             _ => speed // 下载的速度
                         }
                     },
