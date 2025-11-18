@@ -69,7 +69,7 @@ impl Bandwidth {
                     // 已经超出时间窗口，但最多等待2秒避免无限等待
                     1000.min(2000) // 等待1秒，但不超过2秒
                 } else {
-                    period_start + 1000 - now
+                    period_start + 1000 - now + 200
                 };
 
                 tokio::select! {
