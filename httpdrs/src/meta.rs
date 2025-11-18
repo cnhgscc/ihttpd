@@ -24,7 +24,6 @@ pub async fn read_meta(
         }
         let mata_list_path = current_data.split("\n");
 
-        println!("======{:?}", mata_list_path);
 
         let tx_meta_ = tx_meta.clone();
 
@@ -38,6 +37,10 @@ pub async fn read_meta(
             if trimmed_line == "---end---" {
                 stop = true;
                 break;
+            }
+
+            if trimmed_line.is_empty() {
+                continue;
             }
 
             {

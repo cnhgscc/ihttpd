@@ -1,4 +1,6 @@
 import argparse
+import time
+
 
 def with_cmdargs():
 
@@ -35,7 +37,7 @@ def init_with_cmdargs(cmd_args):
 
     try:
         from ..baai_helper import baai_print
-        from ..baai_flagdataset_rs import multi_download, meta_push
+        from ..baai_flagdataset_rs import multi_download, meta_push, wait_for_completion
 
 
         baai_print.print_figlet()
@@ -53,12 +55,16 @@ def init_with_cmdargs(cmd_args):
         print(f"baai-flagdataset: parallel, {parallel}")
 
 
+        multi_download(use_path, presign, network,bandwidth,  parallel)
         meta_push("---start---")
         for meta_bin in (pathlib.Path(".").absolute()/ "meta").glob("*.bin"):
+            time.sleep(1)
             meta_push(meta_bin.name)
         meta_push("---end---")
 
-        multi_download(use_path, presign, network,bandwidth,  parallel)
+
+        wait_for_completion()
+
 
     except Exception as e:
         print(e)

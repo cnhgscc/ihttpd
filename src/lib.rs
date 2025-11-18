@@ -1,7 +1,6 @@
 use pyo3::prelude::*;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
-
 use httpdrs::prelude::*;
 use httpdrs::state::DATA;
 
@@ -55,8 +54,8 @@ fn wait_for_completion() -> PyResult<()> {
 #[pyfunction]
 fn meta_push(name: String) -> PyResult<()> {
     let  current_data = DATA.load().clone();
-    let new_string = format!("{}{}\n", current_data, name);
-    DATA.store(Arc::new(new_string));
+    let new_string = format!("{}\n{}", current_data, name);
+    DATA.store(Arc::new(new_string.trim().to_string()));
     Ok(())
 }
 
