@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
+
 use arc_swap::ArcSwap;
 use indicatif::HumanBytes;
 use tokio::sync::RwLock;
@@ -149,5 +150,5 @@ impl Display for RuntimeSnapshot {
 pub(crate) static META: LazyLock<Arc<Mutex<HashMap<String, u64>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
-
-pub static DATA: LazyLock<ArcSwap<String>> = LazyLock::new(|| ArcSwap::new(Arc::new("".to_string())));
+pub static DATA: LazyLock<ArcSwap<String>> =
+    LazyLock::new(|| ArcSwap::new(Arc::new("".to_string())));

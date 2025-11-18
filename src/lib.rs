@@ -1,8 +1,8 @@
+use httpdrs::prelude::*;
+use httpdrs::state::DATA;
 use pyo3::prelude::*;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
-use httpdrs::prelude::*;
-use httpdrs::state::DATA;
 
 static DOWNLOAD_THREAD: OnceLock<Mutex<Option<thread::JoinHandle<()>>>> = OnceLock::new();
 
@@ -53,12 +53,11 @@ fn wait_for_completion() -> PyResult<()> {
 
 #[pyfunction]
 fn meta_push(name: String) -> PyResult<()> {
-    let  current_data = DATA.load().clone();
+    let current_data = DATA.load().clone();
     let new_string = format!("{}\n{}", current_data, name);
     DATA.store(Arc::new(new_string.trim().to_string()));
     Ok(())
 }
-
 
 /// A Python module implemented in Rust.
 #[pymodule]

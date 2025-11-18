@@ -24,7 +24,6 @@ pub async fn read_meta(
         }
         let mata_list_path = current_data.split("\n");
 
-
         let tx_meta_ = tx_meta.clone();
 
         let mut stop = false;
