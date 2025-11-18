@@ -54,28 +54,13 @@ fn wait_for_completion() -> PyResult<()> {
 
 #[pyfunction]
 fn meta_push(name: String) -> PyResult<()> {
-    const MAX_RETRIES: usize = 5;
-    const RETRY_DELAY_MS: u64 = 10;
-
-    for attempt in 0..MAX_RETRIES {
-        match state::META_FILE_LIST.try_write() {
-            Ok(mut guard) => {
-                guard.push(name.clone());
-                return Ok(());
-            }
-            Err(_) if attempt < MAX_RETRIES - 1 => {
-                std::thread::sleep(std::time::Duration::from_millis(RETRY_DELAY_MS * (attempt + 1) as u64));
-            }
-            Err(_) => {
-                return Err(pyo3::exceptions::PyRuntimeError::new_err(
-                    "无法获取写锁，可能被其他操作占用"
-                ));
-            }
-        }
-    }
-
+    state::META_FILE_LIST
+        .try_write()
+        .unwrap()
+        .push(name.clone());
     Ok(())
 }
+
 
 /// A Python module implemented in Rust.
 #[pymodule]
