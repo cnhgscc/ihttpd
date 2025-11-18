@@ -69,8 +69,91 @@ pub async fn init(mut merge_receiver: MergeReceiver, cancel: CancellationToken) 
     }
 }
 
-// 合并文件
+
+const BIG_CHUNK_SIZE: usize = 500 * 1024 * 1024;
+
+
 pub async fn download_merge(
+    reader: Arc<HttpdMetaReader>,
+    total_parts: u64,
+    total_bytes: u64,
+    data_path: &str,
+    temp_path: &str,
+) -> Result<tokio::time::Duration, Box<dyn std::error::Error>> {
+    let start = Instant::now();
+    let file_path = reader.local_absolute_path_str(data_path);
+
+    tokio::fs::remove_file(file_path.clone()).await.unwrap_or(());
+    if let Some(parent) = std::path::Path::new(&file_path).parent() {
+        fs::create_dir_all(parent).await?;
+    }
+
+    // 使用 BufWriter 提升写入性能
+    let dest_file = fs::OpenOptions::new()
+        .create(true)
+        .write(true)  // 改用 write 模式，append 可能稍慢
+        .open(file_path.clone())
+        .await?;
+    let mut writer = tokio::io::BufWriter::with_capacity(8 * 1024 * 1024, dest_file);
+
+    let mut big_buffer = Vec::with_capacity(BIG_CHUNK_SIZE);
+    let mut current_size = 0;
+
+    // 保存分片路径，避免在循环中重复构造路径
+
+    for idx_part in 0..total_parts {
+        let part_path = reader.local_part_path(data_path, idx_part, temp_path);
+
+        let mut part_file = fs::File::open(&part_path).await?;
+        let metadata = part_file.metadata().await?;
+        let part_size = metadata.len();
+        let chunk_size = 1024 * 1024 * 5;
+
+        let mut part_data = Vec::new();
+
+        if idx_part == total_parts - 1 {
+            let last_part_size = total_bytes - (total_parts - 1) * chunk_size;
+            if part_size > last_part_size {
+                part_data = vec![0u8; last_part_size as usize];
+                part_file.read_exact(&mut part_data).await?;
+            } else {
+                tokio::io::copy(&mut part_file, &mut part_data).await?;
+            }
+        } else if part_size > chunk_size {
+            part_data = vec![0u8; chunk_size as usize];
+            part_file.read_exact(&mut part_data).await?;
+        } else {
+            tokio::io::copy(&mut part_file, &mut part_data).await?;
+        }
+
+        big_buffer.extend_from_slice(&part_data);
+        current_size += part_data.len();
+
+        // 缓冲区满了就写入
+        if current_size >= BIG_CHUNK_SIZE {
+            writer.write_all(&big_buffer[..current_size]).await?;
+            big_buffer.clear();
+            current_size = 0;
+        }
+    }
+
+    // 写入剩余数据
+    if current_size > 0 {
+        writer.write_all(&big_buffer[..current_size]).await?;
+    }
+
+    // 确保所有数据都写入磁盘
+    writer.flush().await?;
+
+    for idx_part in 0..total_parts {
+        let part_path = reader.local_part_path(data_path, idx_part, temp_path);
+        tokio::fs::remove_file(part_path).await.unwrap_or(());
+    }
+    Ok(start.elapsed())
+}
+
+// 合并文件
+pub async fn download_merge_old(
     reader: Arc<HttpdMetaReader>,
     total_parts: u64,
     total_bytes: u64,
