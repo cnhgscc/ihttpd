@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use httpdrs_core::httpd;
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use indicatif::HumanBytes;
 use reqwest::Client;
@@ -92,21 +91,8 @@ pub async fn stream_download_range(
 ) -> Option<(usize, usize)> {
     let start = Instant::now();
 
-    let (range_path, total_parts) = range.path(reader_ref);
-    // 当进行分片下载时，进行断点续传检查
-    if total_parts > 1
-        && range_path.exists()
-        && let Some(local_size) = httpd::check_file_meta(range_path.clone()).await
-        && local_size == range.size()
-    {
-        tracing::info!(
-            "download_range, skip: ({}){}-{}",
-            range.idx_part,
-            range.start_pos,
-            range.end_pos
-        );
-        return Some((local_size as usize, 0));
-    }
+    let (range_path, _) = range.path(reader_ref);
+
 
     let presign_url = presign::read(range.sign.clone(), client_sign).await?;
 

@@ -61,6 +61,7 @@ pub async fn download_file(
     let (tx_part, mut rx_part) = mpsc::channel::<(u64, usize, i32)>(100);
     let reader_merge = Arc::clone(&reader_ref);
 
+    // 在循环外部创建信号量
     for idx_part in 0..total_parts {
         let part_start = idx_part * chunk_size;
         let part_end = (idx_part + 1) * chunk_size;
@@ -81,9 +82,34 @@ pub async fn download_file(
         let client_down_span = Arc::clone(&client_down);
         let client_sign_span = Arc::clone(&client_sign);
 
-        let _ = bandwidth_.permit(part_size).await; // 获取可以使用带宽后才可以下载
         tokio::spawn(async move {
+
+            // 检查这个分片是否已经下载
+            let range =
+                stream::Range::new(idx_part, part_start, part_end, total_parts, sign_, args_);
+
+            let (range_path, total_parts) = range.path(reader_.clone());
+            if total_parts > 1
+                && range_path.exists()
+                && let Some(local_size) = httpd::check_file_meta(range_path.clone()).await
+                && local_size == range.size()
+            {
+                tracing::info!(
+                    "download_range, skip: ({}){}-{}",
+                    range.idx_part,
+                    range.start_pos,
+                    range.end_pos
+                );
+                // 0: skip, 1: down, 2: fail
+                tx_part_
+                    .send((idx_part, local_size as usize, 0))
+                    .await
+                    .unwrap();
+                return
+            }
+
             let _permit = jobs_.acquire().await.unwrap(); // 下载器并发控制
+            let _ = bandwidth_.permit(part_size, format!("{}", idx_part)).await; // 获取可以使用带宽后才可以下载
             {
                 let jobs_count = jobs_.available_permits();
                 tracing::info!("download_jobs: available {}", jobs_count);
@@ -93,7 +119,7 @@ pub async fn download_file(
                 client_down_span,
                 client_sign_span,
                 reader_,
-                stream::Range::new(idx_part, part_start, part_end, total_parts, sign_, args_),
+                range,
             )
             .await
             {

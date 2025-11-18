@@ -35,7 +35,8 @@ impl Bandwidth {
     }
 
     pub fn reset_period(&self, elapsed_ms: u64) -> u64 {
-        self.period_start.store(current_time_ms(), Ordering::Relaxed);
+        self.period_start
+            .store(current_time_ms(), Ordering::Relaxed);
         let used_bytes = self.period_used.swap(0, Ordering::Relaxed);
         if used_bytes != 0 {
             tracing::info!("download_bandwidth, reset_period: {}", used_bytes);
@@ -49,7 +50,11 @@ impl Bandwidth {
         used_bytes * 1000 / elapsed_ms
     }
 
-    pub async fn permit(&self, desired_bytes: u64) -> Result<u64, Box<dyn std::error::Error>> {
+    pub async fn permit(
+        &self,
+        desired_bytes: u64,
+        name: String,
+    ) -> Result<u64, Box<dyn std::error::Error>> {
         loop {
             let old_used = self.period_used.fetch_add(desired_bytes, Ordering::Relaxed);
             if old_used.saturating_add(desired_bytes) > self.max_bs {
@@ -60,7 +65,7 @@ impl Bandwidth {
                     self.max_bs
                 );
 
-                self.wait_count.fetch_add(1, Ordering::Relaxed);
+                let wait_count = self.wait_count.fetch_add(1, Ordering::Relaxed);
                 // 时间窗口是 1000ms
                 let period_start = self.period_start.load(Ordering::Relaxed);
                 let now = current_time_ms();
@@ -69,7 +74,7 @@ impl Bandwidth {
                     // 已经超出时间窗口，但最多等待2秒避免无限等待
                     1000.min(2000) // 等待1秒，但不超过2秒
                 } else {
-                    period_start + 1000 - now + 200
+                    period_start + 1000 - now
                 };
 
                 tokio::select! {
@@ -80,6 +85,12 @@ impl Bandwidth {
                         // 超时唤醒获取执行权限更低
                     }
                 }
+                tracing::info!(
+                    "download_bandwidth, wakeup -> desired: {}, wait: {}, {}",
+                    desired_bytes,
+                    wait_count,
+                    name
+                );
 
                 self.wait_count.fetch_sub(1, Ordering::Relaxed);
                 continue;
