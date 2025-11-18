@@ -34,10 +34,10 @@ impl Bandwidth {
         Arc::new(bw)
     }
 
-    pub fn reset_period(&self, elapsed_ms: u64) -> u64 {
+    pub fn reset_period(&self, elapsed_ms: u64) -> u128 {
         self.period_start
             .store(current_time_ms(), Ordering::Relaxed);
-        let used_bytes = self.period_used.swap(0, Ordering::Relaxed);
+        let used_bytes: u128 = self.period_used.swap(0, Ordering::Relaxed) as u128;
         if used_bytes != 0 {
             tracing::info!("download_bandwidth, reset_period: {}", used_bytes);
 
@@ -51,7 +51,7 @@ impl Bandwidth {
         if elapsed_ms == 0 {
             return 0
         }
-        used_bytes * 1000 / elapsed_ms
+        used_bytes * 1000 / elapsed_ms as u128
     }
 
     pub async fn permit(
