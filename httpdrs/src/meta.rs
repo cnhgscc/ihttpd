@@ -17,8 +17,19 @@ pub async fn read_meta(
 
         loop_count += 1;
 
+        // 尝试获取读锁
+        let mata_list_path = match META_FILE_LIST.try_read() {
+            Ok(meta_guard) => {
+                meta_guard.clone()
+            }
+            Err(_) => {
+                // 获取读锁失败，释放当前可能持有的其他资源
+                // 然后等待一秒
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                continue;
+            }
+        };
         let tx_meta_ = tx_meta.clone();
-        let mata_list_path = META_FILE_LIST.try_read().unwrap().clone();
 
         let mut stop = false;
         for line in mata_list_path {
