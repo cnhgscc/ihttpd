@@ -1,7 +1,7 @@
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::state::{META, META_FILE_LIST};
+use crate::state::{DATA, META};
 
 pub async fn read_meta(
     _meta_list: String,
@@ -17,18 +17,13 @@ pub async fn read_meta(
 
         loop_count += 1;
 
-        // 尝试获取读锁
-        let mata_list_path = match META_FILE_LIST.try_read() {
-            Ok(meta_guard) => {
-                meta_guard.clone()
-            }
-            Err(_) => {
-                // 获取读锁失败，释放当前可能持有的其他资源
-                // 然后等待一秒
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                continue;
-            }
-        };
+        let current_data = arc_swap::ArcSwapAny::load(&DATA);
+        if current_data.is_empty() {
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            continue;
+        }
+        let mata_list_path = current_data.split("\n");
+
         let tx_meta_ = tx_meta.clone();
 
         let mut stop = false;

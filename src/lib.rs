@@ -1,9 +1,9 @@
 use pyo3::prelude::*;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 
 use httpdrs::prelude::*;
-use httpdrs::state;
+use httpdrs::state::DATA;
 
 static DOWNLOAD_THREAD: OnceLock<Mutex<Option<thread::JoinHandle<()>>>> = OnceLock::new();
 
@@ -54,10 +54,9 @@ fn wait_for_completion() -> PyResult<()> {
 
 #[pyfunction]
 fn meta_push(name: String) -> PyResult<()> {
-    state::META_FILE_LIST
-        .try_write()
-        .unwrap()
-        .push(name.clone());
+    let  current_data = DATA.load().clone();
+    let new_string = format!("{}{}\n", current_data, name);
+    DATA.store(Arc::new(new_string));
     Ok(())
 }
 

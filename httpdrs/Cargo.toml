@@ -15,6 +15,7 @@ futures = { workspace = true }
 tokio-util = { workspace = true }
 reqwest = { workspace = true }
 indicatif = { workspace = true }
+arc-swap = "1.7.1"
 
 # server dependencies
 csv = { workspace = true }
