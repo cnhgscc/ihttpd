@@ -1,4 +1,6 @@
 import argparse
+import time
+
 
 def with_cmdargs():
 
@@ -30,26 +32,35 @@ def init_with_cmdargs(cmd_args):
     import pathlib
 
     try:
-        from ..baai_helper import baai_print
-        from ..baai_flagdataset_rs import multi_download
+        from ..helper import figlet
+        from ..ihttpd import multi_download, meta_push, wait_for_completion
 
 
-        baai_print.print_figlet()
+        figlet.print_figlet()
 
-        use_path = pathlib.Path(".").absolute().__str__()
+        use_path = pathlib.Path("").absolute().__str__()
         presign = "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign"
         network = cmd_args.network
         bandwidth = cmd_args.bandwidth
         parallel = cmd_args.parallel
 
-        print(f"baai-flagdataset: use_path, {use_path}")
-        print(f"baai-flagdataset: presign, {presign}")
-        print(f"baai-flagdataset: network, {network}")
-        print(f"baai-flagdataset: bandwidth, {bandwidth}")
-        print(f"baai-flagdataset: parallel, {parallel}")
+        print(f"ihttpd: use_path, {use_path}")
+        print(f"ihttpd: presign, {presign}")
+        print(f"ihttpd: network, {network}")
+        print(f"ihttpd: bandwidth, {bandwidth}")
+        print(f"ihttpd: parallel, {parallel}")
+
 
         multi_download(use_path, presign, network,bandwidth,  parallel)
+        meta_push("---start---")
+        for meta_bin in (pathlib.Path("").absolute() / "meta").glob("*.bin"):
+            time.sleep(1)
+            meta_push(meta_bin.name)
+        meta_push("---end---")
+
+
+        wait_for_completion()
+
 
     except Exception as e:
         print(e)
-

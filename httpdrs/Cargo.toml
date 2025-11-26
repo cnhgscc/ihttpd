@@ -12,6 +12,10 @@ path = "src/lib.rs"
 # core dependencies
 tokio = { workspace = true }
 futures = { workspace = true }
+tokio-util = { workspace = true }
+reqwest = { workspace = true }
+indicatif = { workspace = true }
+arc-swap = "1.7.1"
 
 # server dependencies
 csv = { workspace = true }
@@ -19,11 +23,6 @@ csv = { workspace = true }
 
 # logger dependencies
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 
 httpdrs-logger = { version = "0.1.0",  path = "../httpdrs-logger" }
 httpdrs-core = { version = "0.1.0",  path = "../httpdrs-core" }
-tokio-util = "0.7.16"
-chrono = "0.4.42"
-reqwest = "0.12.24"
-indicatif = "0.18.2"

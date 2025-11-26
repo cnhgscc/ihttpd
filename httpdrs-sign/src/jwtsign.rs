@@ -1,13 +1,14 @@
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
-use jwt::{Token, Header, Claims};
 use base64::prelude::*;
+use jwt::{Claims, Header, Token};
 use rmp_serde::from_slice;
 use serde::Deserialize;
+use tokio::fs;
 
 #[derive(Debug, Deserialize)]
-pub struct  HttpdMetaReader{
+pub struct HttpdMetaReader {
     pub proto: String,
     pub path: String,
     pub prefix: String,
@@ -25,9 +26,9 @@ impl HttpdMetaReader {
         PathBuf::from(base_dir).join(self.local_relative_path())
     }
 
-    pub fn check_local_file(&self, base_dir: &str) -> Option<u64> {
+    pub async fn check_local_file(&self, base_dir: &str) -> Option<u64> {
         let path = self.local_absolute_path_str(base_dir);
-        check_file_meta(path)
+        check_file_meta(path).await
     }
 
     pub fn local_part_path(&self, base_dir: &str, part_index: u64, temp_dir: &str) -> PathBuf {
@@ -35,7 +36,8 @@ impl HttpdMetaReader {
         let local_path = self.local_absolute_path_str(base_dir);
 
         // 计算文件路径的MD5哈希
-        let absolute_path_str = local_path.canonicalize()
+        let absolute_path_str = local_path
+            .canonicalize()
             .unwrap_or(local_path.clone())
             .to_string_lossy()
             .to_string();
@@ -51,7 +53,6 @@ impl HttpdMetaReader {
         let part_filename = format!("{}__{}__{}.bin", part_index, file_hash, file_name);
         PathBuf::from(temp_dir).join(part_filename)
     }
-
 }
 
 impl Display for HttpdMetaReader {
@@ -61,23 +62,34 @@ impl Display for HttpdMetaReader {
 }
 
 pub fn reader_parse(token: String) -> Result<HttpdMetaReader, Box<dyn std::error::Error>> {
-    let t = Token::<Header, Claims, _>::parse_unverified(&*token).unwrap();
-    let claims =  t.claims().clone();
+    let t = Token::<Header, Claims, _>::parse_unverified(&token).unwrap();
+    let claims = t.claims().clone();
 
-    let download_path = claims.private.get("download_path").unwrap().to_string().trim_matches('"').to_string();
+    let download_path = claims
+        .private
+        .get("download_path")
+        .unwrap()
+        .to_string()
+        .trim_matches('"')
+        .to_string();
     let base64_decoded = BASE64_STANDARD.decode(download_path)?;
     let meta_reader: HttpdMetaReader = from_slice(&base64_decoded)?;
     Ok(meta_reader)
 }
 
-pub fn check_file_meta(file_path: PathBuf) -> Option<u64> {
-    if file_path.is_file() {
-        std::fs::metadata(&file_path)
-            .ok()
-            .map(|meta| meta.len())
-    } else {
-        tracing::debug!("{} is not a file", file_path.display());
-        Some(0)
+pub async fn check_file_meta(file_path: PathBuf) -> Option<u64> {
+    match fs::metadata(&file_path).await {
+        Ok(meta) => {
+            if meta.is_file() {
+                Some(meta.len())
+            } else {
+                tracing::debug!("{} is not a file", file_path.display());
+                Some(0)
+            }
+        }
+        Err(_) => {
+            tracing::debug!("Failed to get metadata for {}", file_path.display());
+            None
+        }
     }
 }
-

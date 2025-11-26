@@ -1,9 +1,8 @@
+use reqwest::Client;
 use std::sync::Arc;
 use std::time::Duration;
-use reqwest::Client;
 
-pub fn new_client() -> Arc<Client>{
-
+pub fn new_client() -> Arc<Client> {
     let client = Client::builder()
         .pool_max_idle_per_host(20)
         .pool_idle_timeout(Duration::from_secs(30))
@@ -13,7 +12,5 @@ pub fn new_client() -> Arc<Client>{
         .build()
         .expect("Failed to build reqwest client");
 
-
     Arc::new(client)
-
 }
