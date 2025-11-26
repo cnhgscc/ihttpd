@@ -1,4 +1,4 @@
-from baai_flagdataset_rs import run_flagdataset
+from python.baai_flagdataset_rs import run_flagdataset
 
 
 if __name__ == "__main__":

@@ -76,7 +76,7 @@ impl Bandwidth {
                 // 计算等待时间
                 let wait_ms = if now >= period_start + 1000 {
                     // 已经超出时间窗口，但最多等待2秒避免无限等待
-                    1000.min(2000) // 等待1秒，但不超过2秒
+                    2000 // 等待1秒，但不超过2秒
                 } else {
                     period_start + 1000 - now
                 };

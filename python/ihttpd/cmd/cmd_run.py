@@ -42,7 +42,7 @@ def init_with_cmdargs(cmd_args):
 
         baai_print.print_figlet()
 
-        use_path = pathlib.Path(".").absolute().__str__()
+        use_path = pathlib.Path("").absolute().__str__()
         presign = "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign"
         network = cmd_args.network
         bandwidth = cmd_args.bandwidth
@@ -57,7 +57,7 @@ def init_with_cmdargs(cmd_args):
 
         multi_download(use_path, presign, network,bandwidth,  parallel)
         meta_push("---start---")
-        for meta_bin in (pathlib.Path(".").absolute()/ "meta").glob("*.bin"):
+        for meta_bin in (pathlib.Path("").absolute() / "meta").glob("*.bin"):
             time.sleep(1)
             meta_push(meta_bin.name)
         meta_push("---end---")
@@ -78,7 +78,7 @@ def merge_with_cmdargs(_cmd_args):
     baai_print.print_figlet()
 
 
-    use_path = pathlib.Path(".")
+    use_path = pathlib.Path("")
     meta_path = use_path / "meta"
     temp_path = use_path / "temp"
     list_path = temp_path / "meta.list"

@@ -91,6 +91,7 @@ pub async fn download_merge(
     // 使用 BufWriter 提升写入性能
     let dest_file = fs::OpenOptions::new()
         .create(true)
+        .truncate(true)
         .write(true)  // 改用 write 模式，append 可能稍慢
         .open(file_path.clone())
         .await?;
