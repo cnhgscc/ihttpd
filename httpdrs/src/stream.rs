@@ -93,7 +93,6 @@ pub async fn stream_download_range(
 
     let (range_path, _) = range.path(reader_ref);
 
-
     let presign_url = presign::read(range.sign.clone(), client_sign).await?;
 
     let mut retry_count = 0;

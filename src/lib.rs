@@ -1,14 +1,12 @@
-use httpdrs::prelude::*;
-use httpdrs::state::DATA;
-use pyo3::prelude::*;
-use std::sync::{Arc, Mutex, OnceLock};
+mod state;
+
+use std::sync::Arc;
 use std::thread;
 
-static DOWNLOAD_THREAD: OnceLock<Mutex<Option<thread::JoinHandle<()>>>> = OnceLock::new();
+use pyo3::prelude::*;
 
-fn get_global_handle() -> &'static Mutex<Option<thread::JoinHandle<()>>> {
-    DOWNLOAD_THREAD.get_or_init(|| Mutex::new(None))
-}
+use httpdrs::prelude::*;
+use httpdrs::state::DATA;
 
 #[pyfunction]
 fn multi_download(
@@ -31,18 +29,17 @@ fn multi_download(
         .expect("start multi thread runtime err");
     });
 
-    // 将线程句柄存储到全局变量
-    let global_handle = get_global_handle();
-    let mut guard = global_handle.lock().unwrap();
+    let manager = state::manager();
+    let mut guard = manager.lock().unwrap();
     *guard = Some(handle);
 
     Ok(())
 }
 
 #[pyfunction]
-fn wait_for_completion() -> PyResult<()> {
-    let global_handle = get_global_handle();
-    let mut guard = global_handle.lock().unwrap();
+fn wait() -> PyResult<()> {
+    let manager = state::manager();
+    let mut guard = manager.lock().unwrap();
     if let Some(handle) = guard.take() {
         handle.join().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Thread panicked: {:?}", e))
@@ -52,7 +49,7 @@ fn wait_for_completion() -> PyResult<()> {
 }
 
 #[pyfunction]
-fn meta_push(name: String) -> PyResult<()> {
+fn push(name: String) -> PyResult<()> {
     let current_data = DATA.load().clone();
     let new_string = format!("{}\n{}", current_data, name);
     DATA.store(Arc::new(new_string.trim().to_string()));
@@ -64,7 +61,7 @@ fn meta_push(name: String) -> PyResult<()> {
 #[pyo3(name = "_ihttpd")]
 fn ihttpd(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(multi_download, m)?)?;
-    m.add_function(wrap_pyfunction!(meta_push, m)?)?;
-    m.add_function(wrap_pyfunction!(wait_for_completion, m)?)?;
+    m.add_function(wrap_pyfunction!(push, m)?)?;
+    m.add_function(wrap_pyfunction!(wait, m)?)?;
     Ok(())
 }

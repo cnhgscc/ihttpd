@@ -1,1 +1,1 @@
-from ihttpd import *
+from .httpdrs import *

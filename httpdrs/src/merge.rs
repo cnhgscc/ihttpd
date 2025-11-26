@@ -69,9 +69,7 @@ pub async fn init(mut merge_receiver: MergeReceiver, cancel: CancellationToken) 
     }
 }
 
-
 const BIG_CHUNK_SIZE: usize = 500 * 1024 * 1024;
-
 
 pub async fn download_merge(
     reader: Arc<HttpdMetaReader>,
@@ -83,7 +81,9 @@ pub async fn download_merge(
     let start = Instant::now();
     let file_path = reader.local_absolute_path_str(data_path);
 
-    tokio::fs::remove_file(file_path.clone()).await.unwrap_or(());
+    tokio::fs::remove_file(file_path.clone())
+        .await
+        .unwrap_or(());
     if let Some(parent) = std::path::Path::new(&file_path).parent() {
         fs::create_dir_all(parent).await?;
     }
@@ -92,7 +92,7 @@ pub async fn download_merge(
     let dest_file = fs::OpenOptions::new()
         .create(true)
         .truncate(true)
-        .write(true)  // 改用 write 模式，append 可能稍慢
+        .write(true) // 改用 write 模式，append 可能稍慢
         .open(file_path.clone())
         .await?;
     let mut writer = tokio::io::BufWriter::with_capacity(8 * 1024 * 1024, dest_file);

@@ -83,7 +83,6 @@ pub async fn download_file(
         let client_sign_span = Arc::clone(&client_sign);
 
         tokio::spawn(async move {
-
             // 检查这个分片是否已经下载
             let range =
                 stream::Range::new(idx_part, part_start, part_end, total_parts, sign_, args_);
@@ -105,7 +104,7 @@ pub async fn download_file(
                     .send((idx_part, local_size as usize, 0))
                     .await
                     .unwrap();
-                return
+                return;
             }
 
             let _permit = jobs_.acquire().await.unwrap(); // 下载器并发控制

@@ -1,12 +1,11 @@
 import argparse
-import time
 
 
 def with_cmdargs():
 
     root_parser = argparse.ArgumentParser(add_help=False)
 
-    parser = argparse.ArgumentParser(prog='baai-flagdataset', description="baai-flagdataset 命令行工具: [bf]")
+    parser = argparse.ArgumentParser(prog='ihttpd', description="ihttpd 命令行工具")
     subparsers = parser.add_subparsers(dest='command')
 
     init_parser = subparsers.add_parser('init', help='init', parents=[root_parser])
@@ -33,7 +32,7 @@ def init_with_cmdargs(cmd_args):
 
     try:
         from ..helper import figlet
-        from ..ihttpd import multi_download, meta_push, wait_for_completion
+        from .. import httpdrs
 
 
         figlet.print_figlet()
@@ -50,17 +49,14 @@ def init_with_cmdargs(cmd_args):
         print(f"ihttpd: bandwidth, {bandwidth}")
         print(f"ihttpd: parallel, {parallel}")
 
+        httpdrs.multi_download(use_path, presign, network,bandwidth,  parallel)
 
-        multi_download(use_path, presign, network,bandwidth,  parallel)
-        meta_push("---start---")
+        httpdrs.push("---start---")
         for meta_bin in (pathlib.Path("").absolute() / "meta").glob("*.bin"):
-            time.sleep(1)
-            meta_push(meta_bin.name)
-        meta_push("---end---")
+            httpdrs.push(meta_bin.name)
+        httpdrs.push("---end---")
 
-
-        wait_for_completion()
-
+        httpdrs.wait()
 
     except Exception as e:
         print(e)

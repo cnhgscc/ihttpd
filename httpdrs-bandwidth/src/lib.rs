@@ -49,7 +49,7 @@ impl Bandwidth {
         }
 
         if elapsed_ms == 0 {
-            return 0
+            return 0;
         }
         used_bytes * 1000 / elapsed_ms as u128
     }
