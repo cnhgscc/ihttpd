@@ -1,11 +1,11 @@
 [package]
-name = "baai-flagdataset-rs"
+name = "ihttpd"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-name = "baai_flagdataset_rs"
+name = "ihttpd"
 crate-type = ["cdylib"]
 
 [dependencies]

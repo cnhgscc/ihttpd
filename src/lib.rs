@@ -61,7 +61,8 @@ fn meta_push(name: String) -> PyResult<()> {
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn baai_flagdataset_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
+#[pyo3(name = "_ihttpd")]
+fn ihttpd(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(multi_download, m)?)?;
     m.add_function(wrap_pyfunction!(meta_push, m)?)?;
     m.add_function(wrap_pyfunction!(wait_for_completion, m)?)?;

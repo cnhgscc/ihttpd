@@ -13,7 +13,7 @@ classifiers = [
 dynamic = ["version"]
 
 [project.scripts]
-ihttpd = "ihttd.cmd.cmd_run:with_cmdargs"
+ihttpd = "ihttpd.cmd.cmd_run:with_cmdargs"
 
 
 [tool.maturin]

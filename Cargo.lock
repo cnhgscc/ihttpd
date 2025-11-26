@@ -30,14 +30,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
-name = "baai-flagdataset-rs"
-version = "0.1.0"
-dependencies = [
- "httpdrs",
- "pyo3",
-]
-
-[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -738,6 +730,14 @@ checksum = "3acae9609540aa318d1bc588455225fb2085b9ed0c4f6bd0d9d5bcd86f1a0344"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
+]
+
+[[package]]
+name = "ihttpd"
+version = "0.1.0"
+dependencies = [
+ "httpdrs",
+ "pyo3",
 ]
 
 [[package]]

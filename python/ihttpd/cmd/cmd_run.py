@@ -15,10 +15,6 @@ def with_cmdargs():
     init_parser.add_argument('--parallel', type=int, default="200", help='parallel')
     init_parser.set_defaults(func=init_with_cmdargs)
 
-    # merge
-    merge_parser = subparsers.add_parser('merge', help='merge', parents=[root_parser])
-    merge_parser.set_defaults(func=merge_with_cmdargs)
-
     cmd_args = parser.parse_args()
     if hasattr(cmd_args, 'func'):
         try:
@@ -36,11 +32,11 @@ def init_with_cmdargs(cmd_args):
     import pathlib
 
     try:
-        from ..baai_helper import baai_print
-        from ..baai_flagdataset_rs import multi_download, meta_push, wait_for_completion
+        from ..helper import figlet
+        from ..ihttpd import multi_download, meta_push, wait_for_completion
 
 
-        baai_print.print_figlet()
+        figlet.print_figlet()
 
         use_path = pathlib.Path("").absolute().__str__()
         presign = "http://internal-data.baai.ac.cn/api/v1/storage/sign/download/presign"
@@ -48,11 +44,11 @@ def init_with_cmdargs(cmd_args):
         bandwidth = cmd_args.bandwidth
         parallel = cmd_args.parallel
 
-        print(f"baai-flagdataset: use_path, {use_path}")
-        print(f"baai-flagdataset: presign, {presign}")
-        print(f"baai-flagdataset: network, {network}")
-        print(f"baai-flagdataset: bandwidth, {bandwidth}")
-        print(f"baai-flagdataset: parallel, {parallel}")
+        print(f"ihttpd: use_path, {use_path}")
+        print(f"ihttpd: presign, {presign}")
+        print(f"ihttpd: network, {network}")
+        print(f"ihttpd: bandwidth, {bandwidth}")
+        print(f"ihttpd: parallel, {parallel}")
 
 
         multi_download(use_path, presign, network,bandwidth,  parallel)
@@ -68,29 +64,3 @@ def init_with_cmdargs(cmd_args):
 
     except Exception as e:
         print(e)
-
-
-def merge_with_cmdargs(_cmd_args):
-    import pathlib
-
-    from ..baai_helper import baai_print
-
-    baai_print.print_figlet()
-
-
-    use_path = pathlib.Path("")
-    meta_path = use_path / "meta"
-    temp_path = use_path / "temp"
-    list_path = temp_path / "meta.list"
-
-    list_sets = set()
-    for meta_bin in meta_path.glob("*.bin"):
-        list_sets.add(meta_bin.name)
-
-    with open(list_path, "w") as f:
-        f.write("---start---\n")
-        for list_set in list_sets:
-            f.write(list_set + "\n")
-        f.write("---end---")
-
-    print(f"baai-flagdataset, merge: {list_path.absolute().__str__()}, count: {len(list_sets)}")
