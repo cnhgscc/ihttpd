@@ -1,13 +1,11 @@
-
-
 use std::sync::Arc;
 use std::thread;
 
 use pyo3::prelude::*;
 
+use crate::state;
 use httpdrs::prelude::*;
 use httpdrs::read::state::DATA;
-use crate::state;
 
 #[pyfunction]
 pub fn multi_read(
@@ -27,7 +25,7 @@ pub fn multi_read(
             presign_api,
             network,
         )
-            .expect("start multi thread runtime err");
+        .expect("start multi thread runtime err");
     });
 
     let manager = state::manager();

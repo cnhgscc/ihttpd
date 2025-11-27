@@ -1,6 +1,5 @@
-mod state;
 mod read;
-
+mod state;
 
 use pyo3::prelude::*;
 

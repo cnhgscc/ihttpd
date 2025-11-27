@@ -1,6 +1,6 @@
 mod client;
-pub mod request;
 pub mod read;
+pub mod request;
 mod write;
 
 pub mod httpd {

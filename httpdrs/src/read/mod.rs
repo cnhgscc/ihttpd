@@ -3,7 +3,7 @@ pub mod downloader;
 pub mod merge;
 pub mod meta;
 pub mod reader;
-pub mod stream;
 pub mod runtime;
 pub mod state;
+pub mod stream;
 pub mod watch;

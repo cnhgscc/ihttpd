@@ -8,8 +8,8 @@ use tokio::time::Instant;
 use tokio::{fs, time};
 use tokio_util::bytes::Bytes;
 
-use httpdrs_core::read::presign;
 use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
+use httpdrs_core::read::presign;
 
 pub struct Args {
     pub data_path: String,
