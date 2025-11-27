@@ -1,9 +1,13 @@
-use httpdrs_core::httpd::SignatureClient;
 use std::sync::Arc;
-use tokio::time::Instant;
 
+use tokio::time;
+
+use crate::httpd::SignatureClient;
+
+/// read 获取下载链接
 pub async fn read(sign: String, with_client: Arc<SignatureClient>) -> Option<String> {
-    let start = Instant::now();
+    let start = time::Instant::now();
+
     let reader = match with_client.reader_get(sign).await {
         Ok(reader) => reader,
         Err(err) => {
@@ -23,6 +27,7 @@ pub async fn read(sign: String, with_client: Arc<SignatureClient>) -> Option<Str
         tracing::error!("download_presign, endpoint is empty");
         return None;
     }
+
     tracing::info!("download_presign, use {:?}", start.elapsed());
     Some(reader.data.endpoint)
 }

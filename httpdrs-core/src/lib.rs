@@ -1,10 +1,10 @@
 mod client;
-mod reader;
 pub mod request;
+pub mod read;
+mod write;
 
 pub mod httpd {
     pub use crate::client::*;
-    pub use crate::reader::*;
     pub use httpdrs_bandwidth::*;
     pub use httpdrs_sign::jwtsign::*;
     pub use httpdrs_sign::*;
@@ -12,7 +12,7 @@ pub mod httpd {
 
 /// 本地文件相关
 pub mod io {
-    pub use crate::reader::*;
+    pub use crate::read::reader::*;
 }
 
 /// 远程文件相关

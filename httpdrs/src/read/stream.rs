@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 use indicatif::HumanBytes;
 use reqwest::Client;
 use reqwest::header::RANGE;
@@ -9,7 +8,8 @@ use tokio::time::Instant;
 use tokio::{fs, time};
 use tokio_util::bytes::Bytes;
 
-use crate::presign;
+use httpdrs_core::read::presign;
+use httpdrs_core::httpd::{HttpdMetaReader, SignatureClient};
 
 pub struct Args {
     pub data_path: String,

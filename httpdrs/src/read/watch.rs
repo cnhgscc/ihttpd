@@ -4,7 +4,7 @@ use tokio_util::sync::CancellationToken;
 
 use httpdrs_core::pbar;
 
-use crate::state::RUNTIME;
+use crate::read::state::RUNTIME;
 
 pub(crate) async fn init(pb: ProgressBar, token_bandwidth: CancellationToken) {
     let start = Instant::now();

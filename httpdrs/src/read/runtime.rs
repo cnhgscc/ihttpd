@@ -2,16 +2,19 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use crate::core::{httpd, pbar};
-use crate::merge::MergeMessage;
-use crate::state::{META, RUNTIME, init_runtime};
-use crate::{bandwidth, downloader, merge, reader, watch};
+
 use futures::future::join_all;
 use httpdrs_core::httpd::SignatureClient;
 use reqwest::Client;
 use tokio::runtime;
-use tokio::sync::{Semaphore, mpsc};
+use tokio::sync::{mpsc, Semaphore};
 use tokio_util::sync::CancellationToken;
+
+use crate::read::{downloader, merge, reader, watch};
+use crate::core::{httpd, pbar};
+use crate::read::merge::MergeMessage;
+use crate::read::state::{init_runtime, META, RUNTIME};
+use crate::bandwidth;
 
 pub fn start_multi_thread(
     max_bandwidth: u64,

@@ -5,17 +5,9 @@
 //! httpdrs is a simple http client written in rust.
 
 pub mod bandwidth;
-mod download;
-pub mod downloader;
-pub mod merge;
-mod meta;
 pub mod prelude;
-pub mod presign;
-mod reader;
-pub mod runtime;
-pub mod state;
-pub mod stream;
-pub mod watch;
+pub mod read;
+mod write;
 
 pub mod logger {
     pub use httpdrs_logger::*;

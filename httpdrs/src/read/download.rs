@@ -8,9 +8,9 @@ use httpdrs_core::httpd;
 use httpdrs_core::httpd::{Bandwidth, SignatureClient};
 use httpdrs_core::request;
 
-use crate::merge::{MergeMessage, MergeSender};
-use crate::state::RUNTIME;
-use crate::stream;
+use crate::read::merge::{MergeMessage, MergeSender};
+use crate::read::state::RUNTIME;
+use crate::read::stream;
 
 pub async fn download_file(
     bandwidth: Arc<Bandwidth>,

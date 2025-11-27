@@ -10,10 +10,10 @@ use httpdrs_core::httpd::Bandwidth;
 use httpdrs_core::httpd::SignatureClient;
 use httpdrs_core::request;
 
-use crate::download::download_file;
-use crate::merge::MergeSender;
-use crate::meta;
-use crate::state::RUNTIME;
+use crate::read::download::download_file;
+use crate::read::merge::MergeSender;
+use crate::read::meta;
+use crate::read::state::RUNTIME;
 
 // 下载流程
 pub(crate) async fn down(
