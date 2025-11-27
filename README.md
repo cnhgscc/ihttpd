@@ -1,12 +1,6 @@
+ihttpd
+------------
 
-使用rust实现下载功能
+A lightweight HTTP client for storage read/write operations, implemented in Rust.
 
-
-## rust
-
-
--  rustup
-
-
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 

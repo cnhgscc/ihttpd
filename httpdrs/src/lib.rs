@@ -2,7 +2,7 @@
 
 //! # httpdrs
 //!
-//! httpdrs is a simple http client written in rust.
+//! httpdrs - A lightweight HTTP client for storage read/write operations, implemented in Rust.
 
 pub mod bandwidth;
 pub mod prelude;
