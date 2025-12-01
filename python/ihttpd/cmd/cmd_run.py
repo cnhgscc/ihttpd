@@ -32,7 +32,7 @@ def init_with_cmdargs(cmd_args):
 
     try:
         from ..helper import figlet
-        from .. import httpdrs
+        from .. import read as httpdrs
 
 
         figlet.print_figlet()
