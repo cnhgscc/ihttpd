@@ -83,7 +83,15 @@ pub(crate) async fn down(
             let csv_meta_path = format!("{}/{}", meta_path, meta_name);
 
             tokio::spawn(async move {
-                let mut csv_reader = Reader::from_path(csv_meta_path.as_str()).unwrap();
+                let mut csv_reader = match Reader::from_path(csv_meta_path.as_str()) {
+                    Ok(csv_reader) => {
+                        csv_reader
+                    }
+                    Err(err) => {
+                        tracing::error!("read csv: {} {}", csv_meta_path,  err);
+                        return;
+                    }
+                };
 
                 for raw_result in csv_reader.records() {
                     let raw_line = raw_result.unwrap();
